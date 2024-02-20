@@ -2,6 +2,7 @@ from Tello_Control import TelloC
 
 
 def main():
+    # working
     control = TelloC()   
     print("Started")
 
