@@ -9,6 +9,7 @@ from threading import Thread
 from typing import Optional, Union, Type, Dict
 
 from djitellopy.enforce_types import enforce_types
+#from .enforce_types import enforce_types
 
 import av
 import numpy as np
@@ -25,6 +26,11 @@ class TelloException(Exception):
 
 @enforce_types
 class Tello:
+
+    ################################
+    ### Vse funkcije tega Teleta ###
+    ################################
+
     """Python wrapper to interact with the Ryze Tello drone using the official Tello api.
     Tello API documentation:
     [1.3](https://dl-cdn.ryzerobotics.com/downloads/tello/20180910/Tello%20SDK%20Documentation%20EN_1.3.pdf),

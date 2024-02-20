@@ -16,6 +16,9 @@ from threading import Thread, Event
 
 class TelloC:
     def __init__(self):  
+
+        ### Osnoven program za drona ###
+
         self.root = tki.Tk()
         self.root.title("TELLO Controller")
 
@@ -55,10 +58,6 @@ class TelloC:
         self.prev_T2_filtered = None
         self.last_call_T1_filtered = None
 
-        self.controlEnabled = True
-        self.takeoffEnabled = True
-        self.landEnabled = True
-
         self.cur_fps = 0 
         self.frame_count = 0
         self.last_fps_calculation = time.time()
@@ -76,8 +75,15 @@ class TelloC:
         self.controlEvent = Event()
         self.controlArgs = None
 
+        # Začetek poleta #
+
+        # premaknjeno nižje če bo kaj pomagalo
+        self.controlEnabled = False # True
+        self.takeoffEnabled = True
+        self.landEnabled = True
+
         # Start the persistent control thread
-        self.controlThread = Thread(target=self.persistentControlLoop)
+        self.controlThread = Thread(target=self.persistentControlLoop) # V funkciji persistentControlLoop se kliče funkcija ControlAll, ki kliče funkcijo TakeOff
         self.controlThread.daemon = True
         self.controlThread.start()
 
@@ -85,7 +91,7 @@ class TelloC:
         self.thread.daemon = True
         self.thread.start()
         self.root.bind('<KeyPress>', self.on_key_press)
-        self.root.mainloop() 
+        self.root.mainloop()        
 
     def persistentControlLoop(self):
         while not self.stopEvent.is_set():
