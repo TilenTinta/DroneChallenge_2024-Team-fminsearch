@@ -25,8 +25,8 @@ setuptools.setup(
         'opencv-python',
         'opencv-contrib-python',
         'av',
-        'pillow'
-        'matplotlib'
+        'pillow',
+        'matplotlib',
         'pandas'
     ],
     python_requires='>=3.6',

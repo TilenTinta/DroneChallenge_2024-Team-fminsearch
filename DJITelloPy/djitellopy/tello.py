@@ -8,7 +8,7 @@ import time
 from threading import Thread
 from typing import Optional, Union, Type, Dict
 
-from .enforce_types import enforce_types
+from djitellopy.enforce_types import enforce_types
 
 import av
 import numpy as np
