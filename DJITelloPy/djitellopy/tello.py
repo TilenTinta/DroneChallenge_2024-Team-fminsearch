@@ -569,6 +569,7 @@ class Tello:
         # So we better wait. Otherwise, it would give us an error on the following calls.
         self.send_control_command("takeoff", timeout=Tello.TAKEOFF_TIMEOUT)
         self.is_flying = True
+        print(self.is_flying)
 
     def land(self):
         """Automatic landing.

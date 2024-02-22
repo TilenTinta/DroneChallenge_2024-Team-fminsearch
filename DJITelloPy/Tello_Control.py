@@ -18,7 +18,7 @@ class TelloC:
     def __init__(self):  
 
         ### Osnoven program za drona ###
-
+        # Ne spreminjat -> #
         self.root = tki.Tk()
         self.root.title("TELLO Controller")
 
@@ -26,7 +26,7 @@ class TelloC:
         self.image_label = tki.Label(self.root)
         self.image_label.pack()
 
-        self.arucoId = 1     
+        self.arucoId = 3     
         self.tello = Tello()
         
         self.frame = None  # frame read from h264decoder and used for pose recognition 
@@ -47,7 +47,8 @@ class TelloC:
         self.Tvec = None
         self.Rvec = None
 
-        fname = 'calib.txt'
+        #fname = '/home/tinta/Desktop/DroneChallenge_2024-Team-fminsearch/DJITelloPy/calib.txt'
+        fname = './DJITelloPy/calib.txt'
         self.cameraMatrix = None
         self.distCoeffs = None
         self.numIter = 1
@@ -74,46 +75,53 @@ class TelloC:
         # Persistent thread control
         self.controlEvent = Event()
         self.controlArgs = None
+        # <- Ne spreminjat #
 
-        # Začetek poleta #
-
-        # premaknjeno nižje če bo kaj pomagalo
-        self.controlEnabled = False
+        ### Začetek poleta ###
+        self.controlEnabled = False # !!!
         self.takeoffEnabled = True
         self.landEnabled = True
+
+        # Thread za video
+        self.thread = threading.Thread(target=self.videoLoop, args=())
+        self.thread.daemon = True
+        self.thread.start()
+
+        # Read battery thread
+        self.baterijaThread = Thread(target=self.printBatt, args=())
+        self.baterijaThread.daemon = True
+        self.baterijaThread.start()
+
+        # Test thread
+        #self.test = Thread(target=self.printTest, args=())
+        #self.test.daemon = True
+        #self.test.start()
 
         # Start the persistent control thread
         self.controlThread = Thread(target=self.persistentControlLoop) # V funkciji persistentControlLoop se kliče funkcija ControlAll, ki kliče funkcijo TakeOff
         self.controlThread.daemon = True
         self.controlThread.start()
 
-        # Read battery
-        self.baterijaThread = Thread(target=self.printBatt, args=())
-        self.baterijaThread.daemon = True
-        self.baterijaThread.start()
-
-        """
-        baterija = self.tello.get_battery()
-        print(f"Baterija:", baterija,"%")
-
-        temp = self.tello.get_temperature()
-        print(f"Temp:", temp,"C")
-        """
-
-        self.thread = threading.Thread(target=self.videoLoop, args=())
-        self.thread.daemon = True
-        self.thread.start()
-
         self.root.bind('<KeyPress>', self.on_key_press)
+
+        # ˇˇˇ Ne briši ˇˇˇ #
         self.root.mainloop()        
 
     def printBatt(self):
         while(1):
             bat = self.tello.get_battery()
-            print(f"Bat",bat,"%")
+            print(f"Bat:",bat,"%")
             time.sleep(5)
 
+    def printTest(self):
+        while(1):
+            accx = self.tello.get_acceleration_x()
+            print(f"Accel:",accx)
+            time.sleep(0.05)
+
+    
     def persistentControlLoop(self):
+        print(self.stopEvent.is_set())
         while not self.stopEvent.is_set():
             # Wait for the signal to control
             self.controlEvent.wait()
@@ -319,6 +327,7 @@ class TelloC:
     def controlAll(self, T1, T2, yaw):
         self.controlEnabled = False
         currTime = time.time()
+        print(self.takeoffEnabled)
         if self.takeoffEnabled:
             self.takeoffEnabled = False 
             self.tello.takeoff()
