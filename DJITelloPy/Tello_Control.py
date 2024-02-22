@@ -78,7 +78,7 @@ class TelloC:
         # Začetek poleta #
 
         # premaknjeno nižje če bo kaj pomagalo
-        self.controlEnabled = False # True
+        self.controlEnabled = False
         self.takeoffEnabled = True
         self.landEnabled = True
 
@@ -87,11 +87,31 @@ class TelloC:
         self.controlThread.daemon = True
         self.controlThread.start()
 
+        # Read battery
+        self.baterijaThread = Thread(target=self.printBatt, args=())
+        self.baterijaThread.daemon = True
+        self.baterijaThread.start()
+
+        """
+        baterija = self.tello.get_battery()
+        print(f"Baterija:", baterija,"%")
+
+        temp = self.tello.get_temperature()
+        print(f"Temp:", temp,"C")
+        """
+
         self.thread = threading.Thread(target=self.videoLoop, args=())
         self.thread.daemon = True
         self.thread.start()
+
         self.root.bind('<KeyPress>', self.on_key_press)
         self.root.mainloop()        
+
+    def printBatt(self):
+        while(1):
+            bat = self.tello.get_battery()
+            print(f"Bat",bat,"%")
+            time.sleep(5)
 
     def persistentControlLoop(self):
         while not self.stopEvent.is_set():
@@ -107,10 +127,10 @@ class TelloC:
                     if self.controlEnabled:
                         self.controlAll(T1, T2, yaw)
                     else:
-                        time.sleep(0.01)
+                        time.sleep(0.05)
                     self.controlArgs = None  # Reset arguments
                 else:
-                    time.sleep(0.01)
+                    time.sleep(0.05)
 
     def startControlAllThread(self, T1, T2, yaw):
         # Set the arguments for controlAll
@@ -300,7 +320,7 @@ class TelloC:
         self.controlEnabled = False
         currTime = time.time()
         if self.takeoffEnabled:
-            self.takeoffEnabled = False
+            self.takeoffEnabled = False 
             self.tello.takeoff()
 
         # Increment the frame count
