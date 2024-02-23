@@ -327,7 +327,14 @@ class TelloC:
         n = np.linalg.norm(I - shouldBeIdentity)
         return n < 1e-6
     
+
+    ### Funkcija vodenja ###
+    # T1 = 
+    # T2 = 
+    # yaw = rotacija drona (Z-os)
     def controlAll(self, T1, T2, yaw):
+
+        #--- VZLET / PIČI MIŠKO ---#
         self.controlEnabled = False
         currTime = time.time()
         print(self.takeoffEnabled)
@@ -335,6 +342,7 @@ class TelloC:
             self.takeoffEnabled = False 
             self.tello.takeoff()
 
+        #--- RAČUNANJE FPS-ja in izpis (ob vzletu kamera zmrzne in s tem preprečiš vodenje v tem času) ---#
         # Increment the frame count
         self.frame_count += 1
         # Calculate and print FPS every 2 seconds
@@ -346,6 +354,7 @@ class TelloC:
             self.frame_count = 0
             self.last_fps_calculation = time.time()    
 
+        #--- NEVEM ŠE KAJ NAREDI - verjetno čaka na značko ---#
         if self.tello.is_flying and T1 is not None and T2 is not None and yaw is not None and self.cur_fps > 10:
             if (currTime - self.oldTime) > self.waitSec:
                 if self.state==1:
@@ -364,6 +373,8 @@ class TelloC:
                 self.tello.send_rc_control(0,0,0,0)
                 self.oldTime = currTime
 
+
+            #--- LOW PASS FILTER ---#
             if self.prev_T1_filtered is None:
                 self.prev_T1_filtered = T1
             if self.prev_T2_filtered is None:
@@ -377,6 +388,8 @@ class TelloC:
             self.prev_T1_filtered = T1_filtered
             self.prev_T2_filtered = T2_filtered
 
+
+            #--- VODENJE ---#
             # Check if T1_filtered is less than 2 cm away from its last filtered value
             if self.last_call_T1_filtered is not None:
             
