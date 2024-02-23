@@ -26,7 +26,7 @@ class TelloC:
         self.image_label = tki.Label(self.root)
         self.image_label.pack()
 
-        self.arucoId = 3     
+        self.arucoId = 1     
         self.tello = Tello()
         
         self.frame = None  # frame read from h264decoder and used for pose recognition 
@@ -78,7 +78,7 @@ class TelloC:
         # <- Ne spreminjat #
 
         ### Začetek poleta ###
-        self.controlEnabled = False # !!!
+        self.controlEnabled = True # !!!
         self.takeoffEnabled = True
         self.landEnabled = True
 
@@ -111,6 +111,8 @@ class TelloC:
         while(1):
             bat = self.tello.get_battery()
             print(f"Bat:",bat,"%")
+            temp = self.tello.get_temperature()
+            print(f"Temp:",temp,"C")
             time.sleep(5)
 
     def printTest(self):
@@ -198,6 +200,7 @@ class TelloC:
                         self.frameProc = self.frame.copy()
                         
                         self.Rvec, self.Tvec = self.detectAruco(self.arucoId)
+                        #print(self.Rvec, self.Tvec)
 
                         if self.Rvec is not None and self.Tvec is not None:
                             T1, T2, yaw = self.transformArucoToDroneCoordinates(self.Rvec, self.Tvec)
@@ -376,6 +379,8 @@ class TelloC:
 
             # Check if T1_filtered is less than 2 cm away from its last filtered value
             if self.last_call_T1_filtered is not None:
+            
+                """
                 distance = np.linalg.norm(T1_filtered - self.last_call_T1_filtered)
                 if distance < 0.01:  # Less than 1 cm
                     if self.Step_1 and self.state==0:
@@ -385,10 +390,21 @@ class TelloC:
                         print("T1_f_cm",T1_f_cm)
                         print("T2_f_cm",T2_f_cm)
                         self.tello.curve_xyz_speed(T1_f_cm[0], T1_f_cm[1], T1_f_cm[2], T2_f_cm[0], T2_f_cm[1], T2_f_cm[2], 10)
+                """
+                
+                self.tello.flip_forward()
+                time.sleep(5)
+                self.tello.land()
+ 
 
             # Update the last call filtered value of T1 for the next comparison
             self.last_call_T1_filtered = T1_filtered
         self.controlEnabled = True
+
+
+
+
+
 
     def heightC(self,T,yaw):
         currTime = time.time()
