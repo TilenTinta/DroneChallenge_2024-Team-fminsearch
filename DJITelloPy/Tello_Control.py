@@ -63,7 +63,6 @@ class TelloC:
         self.arucoList = [0,1,2,3,4,5] # vse možne aruco značke
         self.arucoDone = 0 # 0 - ni še preletel, 1 - je preletel (za namen flipa da ve kdaj naj ga nardi)
 
-    
 
         fname = './DJITelloPy/calib.txt'
         self.cameraMatrix = None
@@ -351,7 +350,23 @@ class TelloC:
     # yaw = rotacija drona (Z-os)
     def controlAll(self, T1, T2, yaw):
 
+        #--- RAČUNANJE FPS-ja in izpis (ob vzletu kamera zmrzne in s tem preprečiš vodenje v tem času) ---#
+        # Increment the frame count
+        self.frame_count += 1
+        # Calculate and print FPS every 2 seconds
+        if time.time() - self.last_fps_calculation >= 2:
+            self.cur_fps = self.frame_count / (time.time() - self.last_fps_calculation)
+            print(f"FPS: {self.cur_fps:.2f}")
+
+            # Reset the frame count and last FPS calculation time
+            self.frame_count = 0
+            self.last_fps_calculation = time.time()    
+
+
+
+        
         # State machine - Python switch stavek
+        print("State: ", self.flightState)
         match self.flightState:
 
             #--- VZLET ---#
@@ -368,8 +383,12 @@ class TelloC:
 
             #--- ISKANJE ARUCO ---#
             case self.state_search: # 1
-                if self.tello.is_flying and T1 is not None and T2 is not None and yaw is not None and self.cur_fps > 10:
-                    
+
+                #visina = self.tello.get_distance_tof();                    
+                visina = self.tello.get_height();                    
+                print("Height:", visina)
+                #if self.tello.is_flying and T1 is not None and T2 is not None and yaw is not None and self.cur_fps > 10:
+
 
 
                 return None
@@ -413,19 +432,6 @@ class TelloC:
             #--- NEDEFINIRANO - ni uporabno ---#
             case default:
                 self.flightState = self.state_default
-
-
-        #--- RAČUNANJE FPS-ja in izpis (ob vzletu kamera zmrzne in s tem preprečiš vodenje v tem času) ---#
-        # Increment the frame count
-        self.frame_count += 1
-        # Calculate and print FPS every 2 seconds
-        if time.time() - self.last_fps_calculation >= 2:
-            self.cur_fps = self.frame_count / (time.time() - self.last_fps_calculation)
-            print(f"FPS: {self.cur_fps:.2f}")
-
-            # Reset the frame count and last FPS calculation time
-            self.frame_count = 0
-            self.last_fps_calculation = time.time()    
 
         #--- NEVEM ŠE KAJ NAREDI - verjetno čaka na značko ---#
             
