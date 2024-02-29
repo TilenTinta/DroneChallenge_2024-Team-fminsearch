@@ -26,7 +26,7 @@ class TelloC:
         self.image_label = tki.Label(self.root)
         self.image_label.pack()
 
-        self.arucoId = 1     
+        self.arucoId = 1 # spreminjanje iskane aruco značke    
         self.tello = Tello()
         
         self.frame = None  # frame read from h264decoder and used for pose recognition 
@@ -41,13 +41,30 @@ class TelloC:
         self.degree = 30  # default degree for 'cw' or 'ccw' cmd
 
         self.waitSec = 0.1
-        self.state = 1
         self.oldTime = 0
         self.TR = None
         self.Tvec = None
         self.Rvec = None
+        self.state = 1 # ???????????????
 
-        #fname = '/home/tinta/Desktop/DroneChallenge_2024-Team-fminsearch/DJITelloPy/calib.txt'
+        #--- Naše spremenlivke ---#
+        self.flightState = 0 # glavna spremenljivka stanja leta
+
+        # State spremenljivke - stanje, ki ga dron izvaja (da ni številk ampak besede)
+        self.state_default = 0
+        self.state_search = 1
+        self.state_aligne_move = 2
+        self.state_go = 3
+        self.state_flip = 4
+        self.state_landign = 5
+        self.state_off = 6
+
+        self.arucoId = 1 # spreminjanje iskane aruco značke   
+        self.arucoList = [0,1,2,3,4,5] # vse možne aruco značke
+        self.arucoDone = 0 # 0 - ni še preletel, 1 - je preletel (za namen flipa da ve kdaj naj ga nardi)
+
+    
+
         fname = './DJITelloPy/calib.txt'
         self.cameraMatrix = None
         self.distCoeffs = None
@@ -334,13 +351,69 @@ class TelloC:
     # yaw = rotacija drona (Z-os)
     def controlAll(self, T1, T2, yaw):
 
-        #--- VZLET / PIČI MIŠKO ---#
-        self.controlEnabled = False
-        currTime = time.time()
-        print(self.takeoffEnabled)
-        if self.takeoffEnabled:
-            self.takeoffEnabled = False 
-            self.tello.takeoff()
+        # State machine - Python switch stavek
+        match self.flightState:
+
+            #--- VZLET ---#
+            case self.state_default: # 0
+
+                self.controlEnabled = False
+                currTime = time.time()
+                print(self.takeoffEnabled)
+                if self.takeoffEnabled:
+                    self.takeoffEnabled = False 
+                    self.tello.takeoff()
+                
+                self.flightState = self.state_search
+
+            #--- ISKANJE ARUCO ---#
+            case self.state_search: # 1
+                if self.tello.is_flying and T1 is not None and T2 is not None and yaw is not None and self.cur_fps > 10:
+                    
+
+
+                return None
+            
+            #--- PORAVNAVA/PREMIK DRONA ---#
+            case self.state_aligne_move: # 2
+                return None
+            
+            #--- LETI SKOZI OBROČ ---#
+            case self.state_go: # 3
+                return None
+            
+            #--- FLIP ---#
+            case self.state_flip: # 4
+
+                # FLIP - po preletenih prvih treh obročih
+                if self.arucoId == 3 and self.arucoDone == 1: 
+                    self.tello.flip_left()
+                    self.arucoDone == 0
+                    self.arucoId =+ 1
+
+                # FLIP - po preletenih vseh obročih
+                if self.arucoId == 5 and self.arucoDone == 1: 
+                    self.tello.flip_left()
+                    self.arucoDone == 0
+                    self.arucoId = 0
+
+            #--- PRISTANI---#
+            case self.state_landign: # 5
+
+                # koda
+
+                self.tello.land()
+                self.tello.streamoff()
+            
+            #--- IZKLOP ---#
+            case self.state_off: # 6
+                if self.tello.get_acceleration_z < 0.02: # zaznan pristanek
+                    self.onClose(self)
+
+            #--- NEDEFINIRANO - ni uporabno ---#
+            case default:
+                self.flightState = self.state_default
+
 
         #--- RAČUNANJE FPS-ja in izpis (ob vzletu kamera zmrzne in s tem preprečiš vodenje v tem času) ---#
         # Increment the frame count
@@ -355,7 +428,9 @@ class TelloC:
             self.last_fps_calculation = time.time()    
 
         #--- NEVEM ŠE KAJ NAREDI - verjetno čaka na značko ---#
+            
         if self.tello.is_flying and T1 is not None and T2 is not None and yaw is not None and self.cur_fps > 10:
+            """
             if (currTime - self.oldTime) > self.waitSec:
                 if self.state==1:
                     self.heightC(T1,yaw)
@@ -372,7 +447,7 @@ class TelloC:
                 time.sleep(self.waitSec)
                 self.tello.send_rc_control(0,0,0,0)
                 self.oldTime = currTime
-
+            """
 
             #--- LOW PASS FILTER ---#
             if self.prev_T1_filtered is None:
@@ -404,12 +479,7 @@ class TelloC:
                         print("T2_f_cm",T2_f_cm)
                         self.tello.curve_xyz_speed(T1_f_cm[0], T1_f_cm[1], T1_f_cm[2], T2_f_cm[0], T2_f_cm[1], T2_f_cm[2], 10)
                 """
-                
-                self.tello.flip_forward()
-                time.sleep(5)
-                self.tello.land()
- 
-
+                                
             # Update the last call filtered value of T1 for the next comparison
             self.last_call_T1_filtered = T1_filtered
         self.controlEnabled = True
