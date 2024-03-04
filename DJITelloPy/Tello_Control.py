@@ -26,7 +26,6 @@ class TelloC:
         self.image_label = tki.Label(self.root)
         self.image_label.pack()
 
-        self.arucoId = 1                # spreminjanje iskane aruco značke    
         self.tello = Tello()
         
         self.frame = None               # frame read from h264decoder and used for pose recognition 
@@ -61,7 +60,7 @@ class TelloC:
         self.state_landign = 5          # pristani
         self.state_off = 6              # ugasni se
 
-        self.arucoId = 3                # spreminjanje iskane aruco značke   
+        self.arucoId = 5                # spreminjanje iskane aruco značke   
         self.arucoList = [0,1,2,3,4,5]  # vse možne aruco značke
         self.arucoFound = 0             # trenutna aruco značka najdena
         self.arucoDone = 0              # 0 - ni še preletel, 1 - je preletel (za namen flipa da ve kdaj naj ga nardi)
@@ -108,7 +107,7 @@ class TelloC:
         # <- Ne spreminjat #
 
         ### Začetek poleta ###
-        self.controlEnabled = True # !!!
+        self.controlEnabled = True # !!!!!!!!!!!!!!!!!!!
         self.takeoffEnabled = True
         self.landEnabled = True
 
@@ -225,6 +224,10 @@ class TelloC:
                                 self.startControlAllThread(None, None, None)
                         else:
                             self.startControlAllThread(None, None, None)
+                        
+                        #if T1 is not None and T2 is not None:
+                            #print("T1", T1[0], T1[1], T1[2])
+                            #print("T2", T2[0], T2[1], T2[2])
 
                         pil_image = Image.fromarray(self.frameCopy) 
                         tk_image = ImageTk.PhotoImage(image=pil_image) 
@@ -364,7 +367,6 @@ class TelloC:
         #--- State machine - Python switch stavek ---#
         if self.DroneRead == 1:
 
-            # TODO: funkcije vračajo nek true / false. preveri če bi se s tem dalo blokirat pošiljanje ukazov
             # TODO: Ideja: preklopi na naslednjo aruco značko pred letom skozi krog. s tem dobiš koordinate naslednje značke in veš ali je ta nižje eli višje od trenutne
 
             # Koordinate drona:
@@ -384,7 +386,7 @@ class TelloC:
             # Pridobivanje informacij iz drona
             visina = self.tello.get_height()
 
-            if self.batteryCnt == 10:
+            if self.batteryCnt == 10:       
                 baterija = self.tello.get_battery()
                 print(f"Bat:",baterija,"%")
             else:
@@ -414,9 +416,10 @@ class TelloC:
                     if self.tello.is_flying and T1 is not None and T2 is not None and yaw is not None:
                         print("NAJDU!!!")
                         self.arucoFound = 1
-                        val_x = T2[0] * 10
-                        val_y = T2[1] * 10
-                        val_z = T2[2] * 10
+                        val_x = T1[0] * 100
+                        val_y = T1[1] * 100
+                        val_z = T1[2] * 100
+                        dist = val_z - 50
 
                         print(val_x, val_y, val_z)
 
@@ -441,8 +444,12 @@ class TelloC:
                             if val != 0: 
                                 self.tello.move_down(val)
                         """
+                        if val_x < 20 and val_x > -20: val_x = 0
+                        if val_y < 20 and val_y > -20: val_y = 0
+                        if dist < 50 and dist > -50: dist = 0
 
-                        self.tello.go_xyz_speed(0, int(val_x), int(val_y), 20)
+                        if val_y != 0 and val_x != 20:
+                            self.tello.go_xyz_speed(dist, int(val_y), int(val_z), 20)
 
                         self.flightState = self.state_aligne_move
                     else:
@@ -487,14 +494,14 @@ class TelloC:
                         self.flightState = self.state_search
                         self.arucoFound = 0
 
-
-
+                    # Vidim lepo -> grem skozi krog
+                    #self.flightState = self.state_go
 
                 
                 #--- LETI SKOZI OBROČ ---#
                 case self.state_go: # 3
                     print("GO!")
-                    self.tello.go_xyz_speed(120, 0, 0, 80)
+                    self.tello.go_xyz_speed(120, 0, 0, 10)
                 
                 #--- FLIP ---#
                 case self.state_flip: # 4
