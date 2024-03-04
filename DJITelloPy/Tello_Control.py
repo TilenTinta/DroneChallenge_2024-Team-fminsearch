@@ -587,17 +587,27 @@ class TelloC:
         
         hitrost = 0 # izhodna vrednost
 
+        # Shranjevanje stare napake
         self.napaka[2][os] = self.napaka[1][os]
         self.napaka[1][os] = self.napaka[0][os]
-        self.napaka[0][os] = 0 - trenutnaVrednost
+        napaka = 0 - trenutnaVrednost
+
+        # Dead zone
+        if napaka > 3:
+            self.napaka[0][os] = napaka
+        else:
+            self.napaka[0][os] = 0
+
+        # PID formula
         self.izhod = self.izhod + self.A0 * self.napaka [0] + self.A1 * self.napaka [1] + self.A2 * self.napaka [2]
 
+        # Limit output
+        # TODO: integralski pobeg???
         if self.izhod > 100:
             hitrost = 100
 
         return hitrost
-
-
+    
 
 #################################################### NADALJEVANJE SE LAHKO VSE ZBRIŠE - razn OnClose #################################################################
         
