@@ -84,6 +84,7 @@ class TelloC:
         n = 3
         self.napaka = [[0 for k in range(n)] for j in range(n)] # e(t), e(t-1), e(t-2), list 3x3
         self.izhod = 0                  # Običajno trenutna vrednost aktuatorja
+        self.hitrost = [0,0,0]          # Hitrosti v vse tri smeri
 
         fname = './DJITelloPy/calib.txt'
         self.slikaPath = './DJITelloPy/slike'
@@ -441,14 +442,18 @@ class TelloC:
                         if self.tello.is_flying and T1 is not None and T2 is not None and yaw is not None:
                             print("NAJDU!!!")
                             self.arucoFound = 1
-                            val_x = T1[0] * 100         # m
-                            val_y = T1[1] * 100         # m
-                            val_z = T1[2] * 100 + 100   # m vrednost ki jo poda ji moreš prištet 1m
+                            #val_x = T1[0] * 100         # m
+                            #val_y = T1[1] * 100         # m
+                            #val_z = T1[2] * 100 + 100   # m vrednost ki jo poda ji moreš prištet 1m
+                            #print(val_x, val_y, val_z)
 
-                            print(val_x, val_y, val_z)
+                            # Vodenje s pid regulacijo
+                            for i in range(3):
+                                self.hitrost[i] = self.CalculatePID(i,T1[i])
 
-
-                            self.tello.send_rc_control(0,0,50,0)
+                            print(self.hitrost)
+                            self.tello.send_rc_control(0,0,self.hitrost[2],0)
+                            
 
                             self.flightState = self.state_aligne_move
                         else:
@@ -585,7 +590,13 @@ class TelloC:
 
     def CalculatePID(self, os, trenutnaVrednost): # os: 0/1/2 - katero os gledaš, trenutnaVrednost: trenutna xyz vrednost
         
-        hitrost = 0 # izhodna vrednost
+        speed = 0 # izhodna vrednost
+        
+        # Pretvorba
+        trenutnaVrednost = trenutnaVrednost * 100 # m to cm
+         # Z osi (oddaljenosti) prištej 100cm
+        if os == 2:
+            trenutnaVrednost += 100
 
         # Shranjevanje stare napake
         self.napaka[2][os] = self.napaka[1][os]
@@ -601,14 +612,14 @@ class TelloC:
         # PID formula
         self.izhod = self.izhod + self.A0 * self.napaka [0] + self.A1 * self.napaka [1] + self.A2 * self.napaka [2]
 
-        # Limit output
+        # Limit output (rabljen speed da se ne križa s self.hitrost)
         # TODO: integralski pobeg???
         if self.izhod > 100:
-            hitrost = 100
+            speed = 100
         else:
-            hitrost = int(self.izhod)
+            speed = int(self.izhod)
 
-        return hitrost
+        return speed
     
 
 #################################################### NADALJEVANJE SE LAHKO VSE ZBRIŠE - razn OnClose #################################################################
