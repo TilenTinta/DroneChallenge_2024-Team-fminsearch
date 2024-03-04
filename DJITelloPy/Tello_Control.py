@@ -71,6 +71,7 @@ class TelloC:
         self.pricakovanaVisina = 0      # ciljna višina po ukazu premika
         self.ukaz = 0                   # vrsta ukaza ob iskanju značke
         self.ukazOld = 0                # vrsta prejšnjega ukaza ob iskanju značke
+        self.landZaZih = 0              # pristani ne glede na karkoli
 
         self.translacija = 0
         self.rotacija = 0
@@ -78,6 +79,7 @@ class TelloC:
 
 
         fname = './DJITelloPy/calib.txt'
+        self.slikaPath = './DJITelloPy/slike'
         self.cameraMatrix = None
         self.distCoeffs = None
         self.numIter = 1
@@ -133,8 +135,13 @@ class TelloC:
     # Pulling timer
     def getDroneData(self):
         while(1):
-            time.sleep(1)
-            self.DroneRead = 1
+            if self.flightState > 0:
+                time.sleep(1)
+                self.DroneRead = 1
+            else:
+                time.sleep(0.2)
+                self.DroneRead = 1
+
     
     def persistentControlLoop(self):
         print(self.stopEvent.is_set())
@@ -186,6 +193,16 @@ class TelloC:
             self.tello.takeoff()
         elif key == 'p':
             self.tello.land()
+            self.landZaZih = 1
+            self.ukazOld = 2
+            self.ukaz = 2
+            print("Pristani!")
+        elif key == "i":
+            slika = self.tello.get_frame_read()
+            ime = 'slika.jpg'
+            cv2.imwrite(ime,slika.frame)
+        elif key == "x":
+            self.tello.emergency()
             self.tello.end
         
 
@@ -365,7 +382,7 @@ class TelloC:
 
         
         #--- State machine - Python switch stavek ---#
-        if self.DroneRead == 1:
+        if self.DroneRead == 1 and self.landZaZih == 0:
 
             # TODO: Ideja: preklopi na naslednjo aruco značko pred letom skozi krog. s tem dobiš koordinate naslednje značke in veš ali je ta nižje eli višje od trenutne
 
@@ -384,13 +401,12 @@ class TelloC:
             # T2[2]: z - oddaljenost (+)
 
             # Pridobivanje informacij iz drona
-            visina = self.tello.get_height()
-
             if self.batteryCnt == 10:       
                 baterija = self.tello.get_battery()
                 print(f"Bat:",baterija,"%")
             else:
                 self.batteryCnt += 1
+
 
             match self.flightState:
 
@@ -405,84 +421,67 @@ class TelloC:
                         self.tello.takeoff()
                     
                     # Začni z iskanjem značke
-                    time.sleep(2)
+                    time.sleep(0.5)
                     self.flightState = self.state_search
 
                 #--- ISKANJE ARUCO ---#
                 case self.state_search: # 1
+         
+                    visina = self.tello.get_height()  
+                    print("Iskanje, visina:", visina)  
 
-                    print("Iskanje")                                   
+                    if self.cur_fps > 10:                    
+                        if self.tello.is_flying and T1 is not None and T2 is not None and yaw is not None:
+                            print("NAJDU!!!")
+                            self.arucoFound = 1
+                            val_x = T1[0] * 100
+                            val_y = T1[1] * 100
+                            val_z = T1[2] * 100 + 100
+                            dist = val_z - 50
 
-                    if self.tello.is_flying and T1 is not None and T2 is not None and yaw is not None:
-                        print("NAJDU!!!")
-                        self.arucoFound = 1
-                        val_x = T1[0] * 100
-                        val_y = T1[1] * 100
-                        val_z = T1[2] * 100
-                        dist = val_z - 50
+                            print(val_x, val_y, val_z)
 
-                        print(val_x, val_y, val_z)
+                            if val_x < 20 and val_x > -20: val_x = 0
+                            if val_y < 20 and val_y > -20: val_y = 0
+                            if dist < 50 and dist > -50: dist = 0
 
-                        """
-                        if val_x > 0.2:
-                            print("IF x1")
-                            val = int(np.abs(val_x)) * 10
-                            self.tello.move_right(val)
-                        if val_x < 0.2:
-                            print("IF x2")
-                            val = int(np.abs(val_x)) * 10
-                            if val != 0:
-                                self.tello.move_left(val)
+                            if val_y != 0 and val_x != 20:
+                                self.tello.go_xyz_speed(dist, int(val_y), int(val_z), 20)
 
-                        if val_y > 0.2:
-                            print("IF y1")
-                            val = int(np.abs(val_y)) * 10
-                            self.tello.move_up(val)
-                        if val_y < 0.2 :
-                            print("IF y2")
-                            val = int(np.abs(val_y)) * 10
-                            if val != 0: 
-                                self.tello.move_down(val)
-                        """
-                        if val_x < 20 and val_x > -20: val_x = 0
-                        if val_y < 20 and val_y > -20: val_y = 0
-                        if dist < 50 and dist > -50: dist = 0
+                            self.flightState = self.state_aligne_move
+                        else:
 
-                        if val_y != 0 and val_x != 20:
-                            self.tello.go_xyz_speed(dist, int(val_y), int(val_z), 20)
-
-                        self.flightState = self.state_aligne_move
-                    else:
-
-                        if visina >= 200:
-                            # TODO: dodaj yaw zasuk v eno in drugo smer
-                            self.ukazOld = 2
-
-                        if visina <= 50:
-                            self.ukazOld = 1
-
-                        # če je prenizko, se dvigni
-                        if self.ukaz == 0 and (self.ukazOld == 1 or self.ukazOld == 0):
-                            self.pricakovanaVisina = visina + self.deltaVisina
-                            self.tello.go_xyz_speed(0,self.deltaVisina, 0, 80)
-                            self.ukaz = 1
-
-                        # če je previsoko, se spusti
-                        if self.ukaz == 0 and (self.ukazOld == 2 or self.ukazOld == 0):
-                            self.pricakovanaVisina = visina - self.deltaVisina
-                            self.tello.go_xyz_speed(0,-self.deltaVisina, 0, 80)
-                            self.ukaz = 2
-
-                        # Blokada premikanja
-                        if self.ukaz == 1:
-                            if visina >= self.pricakovanaVisina - 10:
-                                self.ukazOld = 1
-                                self.ukaz = 0
-
-                        if self.ukaz == 2:
-                            if visina <= self.pricakovanaVisina + 10:
+                            if visina >= 200:
+                                # TODO: dodaj yaw zasuk v eno in drugo smer
                                 self.ukazOld = 2
-                                self.ukaz = 0
+
+                            if visina <= 50:
+                                self.ukazOld = 1
+
+                            # če je prenizko, se dvigni
+                            if self.ukaz == 0 and (self.ukazOld == 1 or self.ukazOld == 0):
+                                self.pricakovanaVisina = visina + self.deltaVisina
+                                #self.tello.go_xyz_speed(0,self.deltaVisina, 0, 80)
+                                self.tello.send_rc_control(0,0,50,0)
+                                self.ukaz = 1
+
+                            # če je previsoko, se spusti
+                            if self.ukaz == 0 and (self.ukazOld == 2 or self.ukazOld == 0):
+                                self.pricakovanaVisina = visina - self.deltaVisina
+                                #self.tello.go_xyz_speed(0,-self.deltaVisina, 0, 80)
+                                self.tello.send_rc_control(0,0,-50,0)
+                                self.ukaz = 2
+
+                            # Blokada premikanja
+                            if self.ukaz == 1:
+                                if visina >= self.pricakovanaVisina - 10:
+                                    self.ukazOld = 1
+                                    self.ukaz = 0
+
+                            if self.ukaz == 2:
+                                if visina <= self.pricakovanaVisina + 10:
+                                    self.ukazOld = 2
+                                    self.ukaz = 0
                     
                 
                 #--- PORAVNAVA/PREMIK DRONA ---#

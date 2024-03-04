@@ -24,7 +24,7 @@ def main():
     args.setdefault('--square_size', 30.0) # [mm]
     args.setdefault('--threads', 8)
     if not img_mask:
-        img_mask = './data/*.jpg'  # default
+        img_mask = './Calibration/data/*.jpg'  # default
     else:
         img_mask = img_mask[0]
 
