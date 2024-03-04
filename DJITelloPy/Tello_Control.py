@@ -73,10 +73,17 @@ class TelloC:
         self.ukazOld = 0                # vrsta prejšnjega ukaza ob iskanju značke
         self.landZaZih = 0              # pristani ne glede na karkoli
 
-        self.translacija = 0
-        self.rotacija = 0
-        self.rot = 0
-
+        # PID - separate function for calculation #
+        self.dt = 0.2 # 50Hz
+        self.Kp = 1                     # Člen: P
+        self.Ki = 1                     # Člen: I
+        self.Kd = 1                     # Člen: D
+        self.A0 = self.Kp + self.Ki*self.dt + self.Kd/self.dt   # poenostavitev
+        self.A1 = -self.Kp - 2*self.Kd/self.dt                  # poenostavitev
+        self.A2 = self.Kd/self.dt                               # poenostavitev
+        n = 3
+        self.napaka = [[0 for k in range(n)] for j in range(n)] # e(t), e(t-1), e(t-2), list 3x3
+        self.izhod = 0                  # Običajno trenutna vrednost aktuatorja
 
         fname = './DJITelloPy/calib.txt'
         self.slikaPath = './DJITelloPy/slike'
@@ -197,11 +204,11 @@ class TelloC:
             self.ukazOld = 2
             self.ukaz = 2
             print("Pristani!")
-        elif key == "i":
+        elif key == "i": # slikaj
             slika = self.tello.get_frame_read()
             ime = 'slika.jpg'
             cv2.imwrite(ime,slika.frame)
-        elif key == "x":
+        elif key == "x": # emergency stop
             self.tello.emergency()
             self.tello.end
         
@@ -434,19 +441,14 @@ class TelloC:
                         if self.tello.is_flying and T1 is not None and T2 is not None and yaw is not None:
                             print("NAJDU!!!")
                             self.arucoFound = 1
-                            val_x = T1[0] * 100
-                            val_y = T1[1] * 100
-                            val_z = T1[2] * 100 + 100
-                            dist = val_z - 50
+                            val_x = T1[0] * 100         # m
+                            val_y = T1[1] * 100         # m
+                            val_z = T1[2] * 100 + 100   # m vrednost ki jo poda ji moreš prištet 1m
 
                             print(val_x, val_y, val_z)
 
-                            if val_x < 20 and val_x > -20: val_x = 0
-                            if val_y < 20 and val_y > -20: val_y = 0
-                            if dist < 50 and dist > -50: dist = 0
 
-                            if val_y != 0 and val_x != 20:
-                                self.tello.go_xyz_speed(dist, int(val_y), int(val_z), 20)
+                            self.tello.send_rc_control(0,0,50,0)
 
                             self.flightState = self.state_aligne_move
                         else:
@@ -581,6 +583,19 @@ class TelloC:
         self.controlEnabled = True
 
 
+    def CalculatePID(self, os, trenutnaVrednost): # os: 0/1/2 - katero os gledaš, trenutnaVrednost: trenutna xyz vrednost
+        
+        hitrost = 0 # izhodna vrednost
+
+        self.napaka[2][os] = self.napaka[1][os]
+        self.napaka[1][os] = self.napaka[0][os]
+        self.napaka[0][os] = 0 - trenutnaVrednost
+        self.izhod = self.izhod + self.A0 * self.napaka [0] + self.A1 * self.napaka [1] + self.A2 * self.napaka [2]
+
+        if self.izhod > 100:
+            hitrost = 100
+
+        return hitrost
 
 
 
