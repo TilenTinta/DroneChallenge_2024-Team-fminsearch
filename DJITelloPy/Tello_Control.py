@@ -605,6 +605,8 @@ class TelloC:
         # TODO: integralski pobeg???
         if self.izhod > 100:
             hitrost = 100
+        else:
+            hitrost = int(self.izhod)
 
         return hitrost
     
