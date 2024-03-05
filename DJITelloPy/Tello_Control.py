@@ -66,7 +66,8 @@ class TelloC:
         self.arucoDone = 0              # 0 - ni še preletel, 1 - je preletel (za namen flipa da ve kdaj naj ga nardi)
         self.arucoNext = 0              # 1 - naslednja značka je višje od trenutne, 0 - naslednja značka je nižje od trenutne
 
-        self.visina = 0                 # trenutna visinadrona
+        self.visina = 0                 # trenutna visina drona
+        self.visinaOld = 0              # za detekcijo kroga
         self.deltaVisina = 20           # sprememba visine pri iskanju značke (v cm)
         self.pricakovanaVisina = 0      # ciljna višina po ukazu premika
         self.ukaz = 0                   # vrsta ukaza ob iskanju značke
@@ -76,15 +77,15 @@ class TelloC:
         # PID - separate function for calculation #
         self.sample = 0.2               # sample time - 50Hz
         self.dt = self.sample           
-        self.Kp = 0.1              # Člen: P
-        self.Ki = 0                 # Člen: I
-        self.Kd = 0                   # Člen: D
+        self.Kp = 0.1                   # Člen: P
+        self.Ki = 0                     # Člen: I
+        self.Kd = 0                     # Člen: D
         self.A0 = self.Kp + self.Ki*self.dt + self.Kd/self.dt   # poenostavitev
         self.A1 = -self.Kp - 2*self.Kd/self.dt                  # poenostavitev
         self.A2 = self.Kd/self.dt                               # poenostavitev
         n = 3
         self.napaka = [[0 for k in range(n)] for j in range(n)] # e(t), e(t-1), e(t-2), list 3x3
-        self.izhod = 0                  # Običajno trenutna vrednost aktuatorja
+        self.izhod = [0,0,0]            # Običajno trenutna vrednost aktuatorja
         self.hitrost = [0,0,0]          # Hitrosti v vse tri smeri
 
         fname = './DJITelloPy/calib.txt'
@@ -119,7 +120,7 @@ class TelloC:
 
         ### Začetek poleta ###
         self.controlEnabled = True # !!!!!!!!!!!!!!!!!!!
-        self.takeoffEnabled = True
+        self.takeoffEnabled = False
         self.landEnabled = True
 
         # Thread za video
@@ -390,7 +391,7 @@ class TelloC:
             self.last_fps_calculation = time.time()    
 
         #--- Čakanje na značko in update za low pass filter ---#  
-        if self.tello.is_flying and T1 is not None and T2 is not None and yaw is not None and self.cur_fps > 10:
+        if T1 is not None and T2 is not None and yaw is not None and self.cur_fps > 10: #and self.tello.is_flying:
 
             #--- LOW PASS FILTER ---#
             if self.prev_T1_filtered is None:
@@ -460,28 +461,21 @@ class TelloC:
                     print("Iskanje, visina:", visina)  
 
                     if self.cur_fps > 10:                    
-                        if self.tello.is_flying and T1_filtered is not None and T2_filtered is not None and yaw is not None:
+                        if T1_filtered is not None and T2_filtered is not None and yaw is not None: # and self.tello.is_flying:
                             print("NAJDU!!!")
                             self.arucoFound = 1
-                            #val_x = T1[0] * 100         # m
-                            #val_y = T1[1] * 100         # m
-                            #val_z = T1[2] * 100 + 100   # m vrednost ki jo poda ji moreš prištet 1m
-                            #print(val_x, val_y, val_z)
 
                             # Vodenje s pid regulacijo
                             for i in range(3):
                                 self.hitrost[i] = self.CalculatePID(i,T1_filtered[i])
 
                             print("Hitrost:", self.hitrost)
-                            self.tello.send_rc_control(self.hitrost[1],0,self.hitrost[2],0)
-
-                            for i in range(3):
-                                self.hitrost[i] = 0
-                            
+                            self.tello.send_rc_control(self.hitrost[1],0,self.hitrost[2],0)                        
 
                             self.flightState = self.state_aligne_move
                         else:
 
+                            # Rutina iskanja aruco značke
                             if visina >= 200:
                                 # TODO: dodaj yaw zasuk v eno in drugo smer
                                 self.ukazOld = 2
@@ -520,18 +514,29 @@ class TelloC:
                     print("Aligne")
 
                     # v primeru da se značko izgubi iz vidnega polja
-                    if self.tello.is_flying and T1 is not None and T2 is not None and yaw is not None:
+                    if T1_filtered is not None and T2_filtered is not None and yaw is not None: #and self.tello.is_flying:
                         self.flightState = self.state_search
                         self.arucoFound = 0
-
-                    # Vidim lepo -> grem skozi krog
-                    #self.flightState = self.state_go
+                    #else:
+                        # Vidim lepo -> grem skozi krog
+                        #self.flightState = self.state_go
 
                 
                 #--- LETI SKOZI OBROČ ---#
                 case self.state_go: # 3
                     print("GO!")
-                    self.tello.go_xyz_speed(120, 0, 0, 10)
+                    
+                    # Ko zazna veliko spremembo v višini ve da je skozi obroč
+                    if abs(self.visina - self.visinaOld) > 30:
+                        self.tello.send_rc_control(0,20,0,0)
+                        self.arucoDone = 1
+                        # v vsakem primeru gre v flip al ga rabi ali ne
+                        self.flightState = self.state_flip
+                    else:
+                        # TODO: dodaj pid
+                        self.tello.send_rc_control(0,50,0,0)
+                        self.visinaOld = self.visina
+                    
                 
                 #--- FLIP ---#
                 case self.state_flip: # 4
@@ -542,12 +547,18 @@ class TelloC:
                         self.tello.flip_left()
                         self.arucoDone == 0
                         self.arucoId =+ 1
+                        self.flightState = self.state_search
 
                     # FLIP - po preletenih vseh obročih
-                    if self.arucoId == 5 and self.arucoDone == 1: 
+                    elif self.arucoId == 5 and self.arucoDone == 1: 
                         self.tello.flip_left()
                         self.arucoDone == 0
                         self.arucoId = 0
+                        self.flightState = self.state_search
+                    else:
+                    # Skoči nazaj v iskanje
+                        self.arucoId =+ 1
+                        self.flightState = self.state_search
 
                 #--- PRISTANI---#
                 case self.state_landign: # 5
@@ -557,6 +568,7 @@ class TelloC:
 
                     self.tello.land()
                     self.tello.streamoff()
+                    self.flightState = self.state_off
                 
                 #--- IZKLOP ---#
                 case self.state_off: # 6
@@ -582,46 +594,51 @@ class TelloC:
         speed = 0 # izhodna vrednost
         
         # Pretvorba
-        trenutnaVrednost = trenutnaVrednost * 10 # m to cm
-         # Z osi (oddaljenosti) prištej 100cm
+        trenutnaVrednost = trenutnaVrednost * 100 # m to cm
+
+        # Z osi (oddaljenosti) prištej 100cm
         if os == 2:
             trenutnaVrednost += 100
 
         # Shranjevanje stare napake
-        self.napaka[2][os] = self.napaka[1][os]
-        self.napaka[1][os] = self.napaka[0][os]
+        self.napaka[os][2] = self.napaka[os][1]
+        self.napaka[os][1] = self.napaka[os][0]
 
-        """if trenutnaVrednost >= 10:
-            napaka = trenutnaVrednost - 10
-        elif trenutnaVrednost < -10:
-            napaka = trenutnaVrednost + 10
-        else:"""
-        napaka = 0 - trenutnaVrednost
-
-        # Dead zone
-        if napaka < 3 or napaka > -3:
-            self.napaka[0][os] = napaka #0
-        else:
-            self.napaka[0][os] = napaka
-
-        print(self.napaka[0])
-        print(self.napaka[1])
-        print(self.napaka[2])
-
+        if trenutnaVrednost > 10 or trenutnaVrednost < -10:
+            self.napaka[os][0] = trenutnaVrednost
 
         # PID formula
-        self.izhod = self.izhod + self.A0 * self.napaka[0][os] + self.A1 * self.napaka[1][os] + self.A2 * self.napaka[2][os]
-        print(self.izhod)
+        self.izhod[os] = self.izhod[os] + self.A0 * self.napaka[os][0] + self.A1 * self.napaka[os][1] + self.A2 * self.napaka[os][2]
+        print(self.izhod[os])
 
         # Limit output (rabljen speed da se ne križa s self.hitrost)
-        # TODO: integralski pobeg???
-        if self.izhod > 100:
-            #speed = 100
-            speed = int(self.izhod)
+        if self.izhod[os] > 100:
+            speed = 100
         else:
-            speed = int(self.izhod)
+            speed = int(self.izhod[os])
 
-        return -speed
+        return speed
+    
+    
+
+    def onClose(self):
+        print("[INFO] closing...")
+        self.stopEvent.set()
+        del self.tello
+        self.root.quit()
+
+
+
+
+
+
+
+
+
+
+
+
+
     
 
 #################################################### NADALJEVANJE SE LAHKO VSE ZBRIŠE - razn OnClose #################################################################
@@ -766,9 +783,5 @@ class TelloC:
             else:
                 self.state = 0 #1 !!!
 
-    def onClose(self):
-        print("[INFO] closing...")
-        self.stopEvent.set()
-        del self.tello
-        self.root.quit()
+
 
