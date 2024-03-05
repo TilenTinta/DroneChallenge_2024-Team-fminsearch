@@ -60,7 +60,7 @@ class TelloC:
         self.state_landign = 5          # pristani
         self.state_off = 6              # ugasni se
 
-        self.arucoId = 5                # spreminjanje iskane aruco značke   
+        self.arucoId = 3                # spreminjanje iskane aruco značke   
         self.arucoList = [0,1,2,3,4,5]  # vse možne aruco značke
         self.arucoFound = 0             # trenutna aruco značka najdena
         self.arucoDone = 0              # 0 - ni še preletel, 1 - je preletel (za namen flipa da ve kdaj naj ga nardi)
@@ -74,10 +74,11 @@ class TelloC:
         self.landZaZih = 0              # pristani ne glede na karkoli
 
         # PID - separate function for calculation #
-        self.dt = 0.2 # 50Hz
-        self.Kp = 1                     # Člen: P
-        self.Ki = 1                     # Člen: I
-        self.Kd = 1                     # Člen: D
+        self.sample = 0.2               # sample time - 50Hz
+        self.dt = self.sample           
+        self.Kp = 0.1              # Člen: P
+        self.Ki = 0                 # Člen: I
+        self.Kd = 0                   # Člen: D
         self.A0 = self.Kp + self.Ki*self.dt + self.Kd/self.dt   # poenostavitev
         self.A1 = -self.Kp - 2*self.Kd/self.dt                  # poenostavitev
         self.A2 = self.Kd/self.dt                               # poenostavitev
@@ -147,7 +148,7 @@ class TelloC:
                 time.sleep(1)
                 self.DroneRead = 1
             else:
-                time.sleep(0.2)
+                time.sleep(self.sample)
                 self.DroneRead = 1
 
     
@@ -388,6 +389,26 @@ class TelloC:
             self.frame_count = 0
             self.last_fps_calculation = time.time()    
 
+        #--- Čakanje na značko in update za low pass filter ---#  
+        if self.tello.is_flying and T1 is not None and T2 is not None and yaw is not None and self.cur_fps > 10:
+
+            #--- LOW PASS FILTER ---#
+            if self.prev_T1_filtered is None:
+                self.prev_T1_filtered = T1
+            if self.prev_T2_filtered is None:
+                self.prev_T2_filtered = T2
+            
+            # Apply low pass filter
+            T1_filtered = 0.1 * T1 + 0.9 * self.prev_T1_filtered
+            T2_filtered = 0.1 * T2 + 0.9 * self.prev_T2_filtered
+
+            # Update the previous filtered values for the next call
+            self.prev_T1_filtered = T1_filtered
+            self.prev_T2_filtered = T2_filtered
+                                
+            # Update the last call filtered value of T1 for the next comparison
+            self.last_call_T1_filtered = T1_filtered
+
         
         #--- State machine - Python switch stavek ---#
         if self.DroneRead == 1 and self.landZaZih == 0:
@@ -439,7 +460,7 @@ class TelloC:
                     print("Iskanje, visina:", visina)  
 
                     if self.cur_fps > 10:                    
-                        if self.tello.is_flying and T1 is not None and T2 is not None and yaw is not None:
+                        if self.tello.is_flying and T1_filtered is not None and T2_filtered is not None and yaw is not None:
                             print("NAJDU!!!")
                             self.arucoFound = 1
                             #val_x = T1[0] * 100         # m
@@ -449,10 +470,13 @@ class TelloC:
 
                             # Vodenje s pid regulacijo
                             for i in range(3):
-                                self.hitrost[i] = self.CalculatePID(i,T1[i])
+                                self.hitrost[i] = self.CalculatePID(i,T1_filtered[i])
 
-                            print(self.hitrost)
-                            self.tello.send_rc_control(0,0,self.hitrost[2],0)
+                            print("Hitrost:", self.hitrost)
+                            self.tello.send_rc_control(self.hitrost[1],0,self.hitrost[2],0)
+
+                            for i in range(3):
+                                self.hitrost[i] = 0
                             
 
                             self.flightState = self.state_aligne_move
@@ -550,41 +574,6 @@ class TelloC:
         # // END - DroneRead (state machine) // #
 
 
-        #--- Čakanje na značko in update za low pass filter ---#  
-        if self.tello.is_flying and T1 is not None and T2 is not None and yaw is not None and self.cur_fps > 10:
-
-            #--- LOW PASS FILTER ---#
-            if self.prev_T1_filtered is None:
-                self.prev_T1_filtered = T1
-            if self.prev_T2_filtered is None:
-                self.prev_T2_filtered = T2
-            
-            # Apply low pass filter
-            T1_filtered = 0.1 * T1 + 0.9 * self.prev_T1_filtered
-            T2_filtered = 0.1 * T2 + 0.9 * self.prev_T2_filtered
-
-            # Update the previous filtered values for the next call
-            self.prev_T1_filtered = T1_filtered
-            self.prev_T2_filtered = T2_filtered
-
-            #--- VODENJE ---#
-            # Check if T1_filtered is less than 2 cm away from its last filtered value
-            if self.last_call_T1_filtered is not None:
-            
-                """
-                distance = np.linalg.norm(T1_filtered - self.last_call_T1_filtered)
-                if distance < 0.01:  # Less than 1 cm
-                    if self.Step_1 and self.state==0:
-                        self.Step_1 = False
-                        T1_f_cm = [int(x * 100) for x in T1_filtered]
-                        T2_f_cm = [int(x * 100) for x in T2_filtered]
-                        print("T1_f_cm",T1_f_cm)
-                        print("T2_f_cm",T2_f_cm)
-                        self.tello.curve_xyz_speed(T1_f_cm[0], T1_f_cm[1], T1_f_cm[2], T2_f_cm[0], T2_f_cm[1], T2_f_cm[2], 10)
-                """
-                                
-            # Update the last call filtered value of T1 for the next comparison
-            self.last_call_T1_filtered = T1_filtered
         self.controlEnabled = True
 
 
@@ -593,7 +582,7 @@ class TelloC:
         speed = 0 # izhodna vrednost
         
         # Pretvorba
-        trenutnaVrednost = trenutnaVrednost * 100 # m to cm
+        trenutnaVrednost = trenutnaVrednost * 10 # m to cm
          # Z osi (oddaljenosti) prištej 100cm
         if os == 2:
             trenutnaVrednost += 100
@@ -601,25 +590,38 @@ class TelloC:
         # Shranjevanje stare napake
         self.napaka[2][os] = self.napaka[1][os]
         self.napaka[1][os] = self.napaka[0][os]
+
+        """if trenutnaVrednost >= 10:
+            napaka = trenutnaVrednost - 10
+        elif trenutnaVrednost < -10:
+            napaka = trenutnaVrednost + 10
+        else:"""
         napaka = 0 - trenutnaVrednost
 
         # Dead zone
-        if napaka > 3:
-            self.napaka[0][os] = napaka
+        if napaka < 3 or napaka > -3:
+            self.napaka[0][os] = napaka #0
         else:
-            self.napaka[0][os] = 0
+            self.napaka[0][os] = napaka
+
+        print(self.napaka[0])
+        print(self.napaka[1])
+        print(self.napaka[2])
+
 
         # PID formula
-        self.izhod = self.izhod + self.A0 * self.napaka [0] + self.A1 * self.napaka [1] + self.A2 * self.napaka [2]
+        self.izhod = self.izhod + self.A0 * self.napaka[0][os] + self.A1 * self.napaka[1][os] + self.A2 * self.napaka[2][os]
+        print(self.izhod)
 
         # Limit output (rabljen speed da se ne križa s self.hitrost)
         # TODO: integralski pobeg???
         if self.izhod > 100:
-            speed = 100
+            #speed = 100
+            speed = int(self.izhod)
         else:
             speed = int(self.izhod)
 
-        return speed
+        return -speed
     
 
 #################################################### NADALJEVANJE SE LAHKO VSE ZBRIŠE - razn OnClose #################################################################
