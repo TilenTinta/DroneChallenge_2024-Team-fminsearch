@@ -21,7 +21,7 @@ def main():
     args, img_mask = getopt.getopt(sys.argv[1:], '', ['debug=', 'square_size=', 'threads='])
     args = dict(args)
     args.setdefault('--debug', './output/')
-    args.setdefault('--square_size', 30.0) # [mm]
+    args.setdefault('--square_size', 28.0) # [mm]
     args.setdefault('--threads', 8)
     if not img_mask:
         img_mask = './Calibration/data/*.jpg'  # default

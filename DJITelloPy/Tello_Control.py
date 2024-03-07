@@ -77,8 +77,8 @@ class TelloC:
         # PID - separate function for calculation #
         self.sample = 0.2               # sample time - 50Hz
         self.dt = self.sample           
-        self.Kp = 0.2                   # Člen: P
-        self.Ki = 0.1                     # Člen: I
+        self.Kp = 1                     # Člen: P
+        self.Ki = 0                     # Člen: I
         self.Kd = 0                     # Člen: D
         self.A0 = self.Kp + self.Ki*self.dt + self.Kd/self.dt   # poenostavitev
         self.A1 = -self.Kp - 2*self.Kd/self.dt                  # poenostavitev
@@ -90,7 +90,6 @@ class TelloC:
         self.razdalja = [0,0,0]          # Hitrosti v vse tri smeri
 
         fname = './DJITelloPy/calib.txt'
-        self.slikaPath = './DJITelloPy/slike'
         self.cameraMatrix = None
         self.distCoeffs = None
         self.numIter = 1
@@ -120,8 +119,8 @@ class TelloC:
         # <- Ne spreminjat #
 
         ### Začetek poleta ###
-        self.controlEnabled = True # !!!!!!!!!!!!!!!!!!!
-        self.takeoffEnabled = True
+        self.controlEnabled = True 
+        self.takeoffEnabled = True # !!!!!!!!!!!!!!!!!!!
         self.landEnabled = True
 
         # Thread za video
@@ -210,8 +209,8 @@ class TelloC:
             print("Pristani!")
         elif key == "i": # slikaj
             slika = self.tello.get_frame_read()
-            ime = 'slika.jpg'
-            cv2.imwrite(ime,slika.frame)
+            ime = './DJITelloPy/slike/slika' + str(time.time()) + '.jpg'
+            cv2.imwrite(ime, slika.frame)
         elif key == "x": # emergency stop
             self.tello.emergency()
             self.tello.end
@@ -452,7 +451,7 @@ class TelloC:
                         self.tello.takeoff()
                     
                     # Začni z iskanjem značke
-                    time.sleep(2)
+                    time.sleep(1)
                     self.flightState = self.state_search
 
                 #--- ISKANJE ARUCO ---#
@@ -521,14 +520,12 @@ class TelloC:
                         print("Razdalja:", np.round(self.razdalja,2))
                         
                         # Preverjam velikost napake 
-                        if self.razdalja[0] >= 10 and self.razdalja[0] <= -10 and self.razdalja[1] >= 10 and self.razdalja[1] <= -10: 
+                        if self.razdalja[1] >= 20 and self.razdalja[1] <= -20 and self.razdalja[2] >= 20 and self.razdalja[2] <= -20: 
                             # Vidim lepo -> grem skozi krog
-                            self.flightState = self.state_go
+                            self.flightState = self.state_aligne_move #self.state_go
                         else:
                             print("Poravnavam...")
-                            self.tello.send_rc_control(self.hitrost[0],0,self.hitrost[1],0)  
-
-                        
+                            self.tello.send_rc_control(self.hitrost[1], 0, self.hitrost[2], 0)   
                 
                 #--- LETI SKOZI OBROČ ---#
                 case self.state_go: # 3
@@ -606,21 +603,13 @@ class TelloC:
         trenutnaVrednost = trenutnaVrednost * 100 # m to cm
 
         # Z osi (oddaljenosti) prištej 100cm
-        if os == 2:
-            trenutnaVrednost += 100
+        if os == 0:
+            trenutnaVrednost -= 0
 
         # Shranjevanje stare napake
         self.napaka[os][2] = self.napaka[os][1]
         self.napaka[os][1] = self.napaka[os][0]
-        if os == 0:
-            self.napaka[os][0] = 0-trenutnaVrednost
-            print("levo-desno", self.napaka[os][0])
-        elif os == 1:
-            self.napaka[os][0] = 0- trenutnaVrednost
-            print("gor-dol", self.napaka[os][0])
-        elif os == 2:
-            self.napaka[os][0] = 0- trenutnaVrednost
-            print("naprej-nazaj", self.napaka[os][0])
+        self.napaka[os][0] = trenutnaVrednost
 
         # PID formula
         self.izhod[os] = self.izhod[os] + self.A0 * self.napaka[os][0] + self.A1 * self.napaka[os][1] + self.A2 * self.napaka[os][2]
