@@ -77,7 +77,7 @@ class TelloC:
         # PID - separate function for calculation #
         self.sample = 0.2               # sample time - 50Hz
         self.dt = self.sample           
-        self.Kp = 1                     # Člen: P
+        self.Kp = 0.5                     # Člen: P
         self.Ki = 0                     # Člen: I
         self.Kd = 0                     # Člen: D
         self.A0 = self.Kp + self.Ki*self.dt + self.Kd/self.dt   # poenostavitev
@@ -87,7 +87,7 @@ class TelloC:
         self.napaka = [[0 for k in range(n)] for j in range(n)] # e(t), e(t-1), e(t-2), list 3x3
         self.izhod = [0,0,0]            # Običajno trenutna vrednost aktuatorja
         self.hitrost = [0,0,0]          # Hitrosti v vse tri smeri
-        self.razdalja = [0,0,0]          # Hitrosti v vse tri smeri
+        self.razdalja = [0,0,0]         # Hitrosti v vse tri smeri
 
         fname = './DJITelloPy/calib.txt'
         self.cameraMatrix = None
@@ -512,20 +512,21 @@ class TelloC:
                         self.arucoFound = 0
                         print("Zgubu!") 
                     else:
-                        # Vodenje s pid regulacijo
-                        for i in range(3):
-                            self.hitrost[i], self.razdalja[i] = self.CalculatePID(i,T1_filtered[i])
-
-                        print("Hitrost:", self.hitrost)
-                        print("Razdalja:", np.round(self.razdalja,2))
-                        
+                      
                         # Preverjam velikost napake 
-                        if self.razdalja[1] >= 20 and self.razdalja[1] <= -20 and self.razdalja[2] >= 20 and self.razdalja[2] <= -20: 
+                        if self.razdalja[1] >= 5 and self.razdalja[1] <= -5 and self.razdalja[2] >= 5 and self.razdalja[2] <= -5: 
                             # Vidim lepo -> grem skozi krog
                             self.flightState = self.state_aligne_move #self.state_go
                         else:
                             print("Poravnavam...")
-                            self.tello.send_rc_control(self.hitrost[1], 0, self.hitrost[2], 0)   
+                            
+                            # Vodenje s pid regulacijo
+                            for i in range(3):
+                                self.hitrost[i], self.razdalja[i] = self.CalculatePID(i,T1_filtered[i])
+
+                            print("Hitrost:", self.hitrost)
+                            print("Razdalja:", np.round(self.razdalja,2))
+                            self.tello.send_rc_control(self.hitrost[1], 0, self.hitrost[2], 0) # L-R, F-B, U-D, Y
                 
                 #--- LETI SKOZI OBROČ ---#
                 case self.state_go: # 3
@@ -609,7 +610,10 @@ class TelloC:
         # Shranjevanje stare napake
         self.napaka[os][2] = self.napaka[os][1]
         self.napaka[os][1] = self.napaka[os][0]
-        self.napaka[os][0] = trenutnaVrednost
+        if os == 1:
+            self.napaka[os][0] = 0 - trenutnaVrednost
+        else:
+            self.napaka[os][0] = trenutnaVrednost
 
         # PID formula
         self.izhod[os] = self.izhod[os] + self.A0 * self.napaka[os][0] + self.A1 * self.napaka[os][1] + self.A2 * self.napaka[os][2]
