@@ -75,19 +75,21 @@ class TelloC:
         self.landZaZih = 0              # pristani ne glede na karkoli
 
         # PID - separate function for calculation #
-        self.sample = 0.2               # sample time - 50Hz
+        self.sample = 0.1               # sample time - 50Hz
         self.dt = self.sample           
-        self.Kp = 0.5                     # Člen: P
-        self.Ki = 0                     # Člen: I
+        self.Kp = 0.35                   # Člen: P
+        self.Ki = 0.12                   # Člen: I
         self.Kd = 0                     # Člen: D
         self.A0 = self.Kp + self.Ki*self.dt + self.Kd/self.dt   # poenostavitev
         self.A1 = -self.Kp - 2*self.Kd/self.dt                  # poenostavitev
         self.A2 = self.Kd/self.dt                               # poenostavitev
-        n = 3
-        self.napaka = [[0 for k in range(n)] for j in range(n)] # e(t), e(t-1), e(t-2), list 3x3
-        self.izhod = [0,0,0]            # Običajno trenutna vrednost aktuatorja
-        self.hitrost = [0,0,0]          # Hitrosti v vse tri smeri
-        self.razdalja = [0,0,0]         # Hitrosti v vse tri smeri
+        n = 3 
+        m = 4 
+        self.napaka = [[0 for k in range(n)] for j in range(m)] # e(t), e(t-1), e(t-2), list 3x3
+        self.izhod = [0, 0, 0, 0]            # Običajno trenutna vrednost aktuatorja
+        self.hitrost = [0, 0, 0, 0]          # Hitrosti v vse tri smeri in yaw
+        self.razdalja = [100, 100, 100, 100] # Razdalja v vse tri smeri in yaw
+        self.ravnoCnt = 0               # counter za resnično ravno pozicijo
 
         fname = './DJITelloPy/calib.txt'
         self.cameraMatrix = None
@@ -384,7 +386,7 @@ class TelloC:
         # Calculate and print FPS every 2 seconds
         if time.time() - self.last_fps_calculation >= 2:
             self.cur_fps = self.frame_count / (time.time() - self.last_fps_calculation)
-            print(f"FPS: {self.cur_fps:.2f}")
+            #print(f"FPS: {self.cur_fps:.2f}")
 
             # Reset the frame count and last FPS calculation time
             self.frame_count = 0
@@ -479,14 +481,12 @@ class TelloC:
                             # če je prenizko, se dvigni
                             if self.ukaz == 0 and (self.ukazOld == 1 or self.ukazOld == 0):
                                 self.pricakovanaVisina = visina + self.deltaVisina
-                                #self.tello.go_xyz_speed(0,self.deltaVisina, 0, 80)
                                 self.tello.send_rc_control(0,0,20,0)
                                 self.ukaz = 1
 
                             # če je previsoko, se spusti
                             if self.ukaz == 0 and (self.ukazOld == 2 or self.ukazOld == 0):
                                 self.pricakovanaVisina = visina - self.deltaVisina
-                                #self.tello.go_xyz_speed(0,-self.deltaVisina, 0, 80)
                                 self.tello.send_rc_control(0,0,-20,0)
                                 self.ukaz = 2
 
@@ -504,7 +504,6 @@ class TelloC:
                 
                 #--- PORAVNAVA/PREMIK DRONA ---#
                 case self.state_aligne_move: # 2
-                    print("Poravnava") 
 
                     # v primeru da se značko izgubi iz vidnega polja
                     if T1_filtered is None and T2_filtered is None and yaw is None and self.tello.is_flying:
@@ -514,34 +513,49 @@ class TelloC:
                     else:
                       
                         # Preverjam velikost napake 
-                        if self.razdalja[1] >= 5 and self.razdalja[1] <= -5 and self.razdalja[2] >= 5 and self.razdalja[2] <= -5: 
+                        if self.razdalja[1] <= 10 and self.razdalja[1] >= -10 and self.razdalja[2] <= 23 and self.razdalja[2] >= 5 and self.razdalja[0] <= 20: 
                             # Vidim lepo -> grem skozi krog
-                            self.flightState = self.state_aligne_move #self.state_go
+                            print("RAVNO!")
+
+                            # zaščita da vidiš da je res ravno poravnan
+                            if self.ravnoCnt >= 3:
+                                self.ravnoCnt = 0
+                                self.flightState = self.state_go
+                            else:
+                                self.ravnoCnt += 1
                         else:
                             print("Poravnavam...")
-                            
+                            self.ravnoCnt = 0;  
+
                             # Vodenje s pid regulacijo
-                            for i in range(3):
-                                self.hitrost[i], self.razdalja[i] = self.CalculatePID(i,T1_filtered[i])
+                            print("yaw",yaw)
+                            for i in range(4):
+                                if i != 3: # Translacija
+                                    self.hitrost[i], self.razdalja[i] = self.CalculatePID(i,T1_filtered[i])
+                                if i == 3 and yaw is not None: # Rotacija
+                                    break
+                                    self.hitrost[i], self.razdalja[i] = self.CalculatePID(i,yaw)
 
                             print("Hitrost:", self.hitrost)
                             print("Razdalja:", np.round(self.razdalja,2))
-                            self.tello.send_rc_control(self.hitrost[1], 0, self.hitrost[2], 0) # L-R, F-B, U-D, Y
+                            self.tello.send_rc_control(self.hitrost[1], self.hitrost[0], self.hitrost[2], 0) # L-R, F-B, U-D, Y
                 
                 #--- LETI SKOZI OBROČ ---#
                 case self.state_go: # 3
-                    print("GO!")
+
+                    self.visina = self.tello.get_height()  
+                    print("GO!, visina:", self.visina)
                     
                     # Ko zazna veliko spremembo v višini ve da je skozi obroč
-                    if abs(self.visina - self.visinaOld) > 30:
-                        print("Oroč!!!")
+                    if abs(self.visina - self.visinaOld) > 50:
+                        print("Obroč!!!")
                         self.tello.send_rc_control(0,20,0,0)
                         self.arucoDone = 1
                         # v vsakem primeru gre v flip al ga rabi ali ne
                         self.flightState = self.state_flip
                     else:
-                        # TODO: dodaj pid
-                        self.tello.send_rc_control(0,50,0,0)
+
+                        self.tello.send_rc_control(0, 30, 0, 0) # L-R, F-B, U-D, Y
                         self.visinaOld = self.visina
                     
                 
@@ -601,18 +615,19 @@ class TelloC:
         speed = 0 # izhodna vrednost
         
         # Pretvorba
-        trenutnaVrednost = trenutnaVrednost * 100 # m to cm
-
-        # Z osi (oddaljenosti) prištej 100cm
-        if os == 0:
-            trenutnaVrednost -= 0
+        if os != 3: trenutnaVrednost = trenutnaVrednost * 100 # m to cm
 
         # Shranjevanje stare napake
         self.napaka[os][2] = self.napaka[os][1]
         self.napaka[os][1] = self.napaka[os][0]
-        if os == 1:
+
+        if os == 0: # naprej / nazaj
+            self.napaka[os][0] = trenutnaVrednost - 50
+        if os == 1: # levo / desno
             self.napaka[os][0] = 0 - trenutnaVrednost
-        else:
+        if os == 2: # gor / dol
+            self.napaka[os][0] = trenutnaVrednost + 20
+        else:       # yaw
             self.napaka[os][0] = trenutnaVrednost
 
         # PID formula
