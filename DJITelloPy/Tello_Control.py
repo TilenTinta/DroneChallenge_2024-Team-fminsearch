@@ -75,7 +75,7 @@ class TelloC:
         self.landZaZih = 0              # pristani ne glede na karkoli
 
         # PID - separate function for calculation #
-        self.sample = 0.1               # sample time - 50Hz
+        self.sample = 0.1               # sample time - 50Hz !! AJA???? 1/50 = 0.02 in ne 0.2 !! TODO: pohitri regulator 0.02 / 0.01
         self.dt = self.sample           
         self.Kp = 0.30                  # Člen: P 0.3
         self.Ki = 0.10                  # Člen: I 0.12
@@ -519,7 +519,7 @@ class TelloC:
                     else:
                       
                         # Preverjam velikost napake - krogi
-                        if self.razdalja[1] <= 7 and self.razdalja[1] >= -7 and self.razdalja[2] <= 10 and self.razdalja[2] >= -5 and self.razdalja[0] <= 30 and self.arucoId != 0: 
+                        if self.razdalja[1] <= 7 and self.razdalja[1] >= -7 and self.razdalja[2] <= 20 and self.razdalja[2] >= -5 and self.razdalja[0] <= 50 and self.arucoId != 0: 
                             # Vidim lepo -> grem skozi krog
                             print("RAVNO!")
 
@@ -587,8 +587,9 @@ class TelloC:
                     # FLIP - po preletenih prvih treh obročih
                     if self.arucoId == 3 and self.arucoDone == 1: 
                         self.tello.flip_left()
-                        self.arucoDone == 0
+                        self.arucoDone = 0
                         self.arucoId =+ 1
+                        print("Iščem aruco: ", self.arucoId)
                         self.flightState = self.state_search
 
                     # FLIP - po preletenih vseh obročih
@@ -644,7 +645,7 @@ class TelloC:
         self.napaka[os][1] = self.napaka[os][0]
 
         if os == 0: # naprej / nazaj
-            self.napaka[os][0] = trenutnaVrednost
+            self.napaka[os][0] = trenutnaVrednost + 100
         if os == 1: # levo / desno
             self.napaka[os][0] = 0 - trenutnaVrednost
         if os == 2: # gor / dol
