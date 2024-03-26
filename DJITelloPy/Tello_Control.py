@@ -101,7 +101,7 @@ class TelloC:
         self.A2y = self.Kdy/self.dt                                 # poenostavitev
         # PID - Z (gor/dol)
         self.Kpz = 0.12                                             # Člen: P 0.08
-        self.Kiz = 0.03                                             # Člen: I 0.03
+        self.Kiz = 0.10                                             # Člen: I 0.03
         self.Kdz = 0.01                                             # Člen: D 0.01
         self.A0z = self.Kpz + self.Kiz*self.dt + self.Kdz/self.dt   # poenostavitev
         self.A1z = -self.Kpz - 2*self.Kdz/self.dt                   # poenostavitev
@@ -161,7 +161,7 @@ class TelloC:
 
         ### Začetek poleta ###
         self.controlEnabled = True 
-        self.takeoffEnabled = False # !!!!!!!!!!!!!!!!!!!
+        self.takeoffEnabled = True # !!!!!!!!!!!!!!!!!!!
         self.landEnabled = True
 
         # Thread za video
@@ -534,6 +534,10 @@ class TelloC:
                                         self.arucoNext = 0
                                         print("Naslednja je ravno")
 
+                                # Če je na meji videa ga hitro zgubi
+                                if T1[2] >= 0: self.tello.send_rc_control(0,0,20,0)
+                                if T1[2] > 0: self.tello.send_rc_control(0,0,-10,0)
+
                                 self.T1Next is None
                                 self.arucoId = self.arucoIdReal
                                 self.flightState = self.state_aligne_move
@@ -600,6 +604,7 @@ class TelloC:
                 #--- PORAVNAVA/PREMIK DRONA ---#
                 case self.state_aligne_move: # 2
 
+                    print("Aruco ID:", self.arucoId)
                     print("Bubble: ", self.bubble)
                     print("Naslednji:", self.arucoNext)
 
