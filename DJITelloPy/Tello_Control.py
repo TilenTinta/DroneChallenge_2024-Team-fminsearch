@@ -70,6 +70,8 @@ class TelloC:
         self.brake = 0                  # žlajf ko pride v krog
         self.flipDone = 0               # proži po flipu za rotacijo in pristajanje 
         self.droneRotate = 0            # obrat po prvih treh krogih
+        self.arucoIdReal = self.arucoId # Resnična vrednost iskane aruco značke
+        self.arucoNextSearch = 0        # Flag ko  
 
         self.visina = 0                 # trenutna visina drona
         self.visinaOld = 0              # za detekcijo kroga
@@ -159,7 +161,7 @@ class TelloC:
 
         ### Začetek poleta ###
         self.controlEnabled = True 
-        self.takeoffEnabled = True # !!!!!!!!!!!!!!!!!!!
+        self.takeoffEnabled = False # !!!!!!!!!!!!!!!!!!!
         self.landEnabled = True
 
         # Thread za video
@@ -422,7 +424,7 @@ class TelloC:
         #self.freqNow = time.time() - self.freq
         #print("Frekvenca",self.freqNow)
         #self.freq = time.time()
-        #self.tello.is_flying = True
+        self.tello.is_flying = True
         #self.DroneRead = 1 # pohitri regulator na max
 
         T1_filtered = [0,0,0]
@@ -503,8 +505,9 @@ class TelloC:
 
                     if self.cur_fps > 10:                    
                         if T1 is not None and T2 is not None and yaw is not None and self.tello.is_flying:
-                            
-                            if self.searchProtect > 10:
+
+                            # Trenutno iskan aruco ID
+                            if self.arucoIdReal == self.arucoId:
                                 self.searchProtect = 0
                                 print("NAJDU!!!")
                                 self.bubble = 0
@@ -512,16 +515,38 @@ class TelloC:
                                 self.visina = self.tello.get_distance_tof()  
                                 self.visinaOld = self.visina
 
-                                # TODO: iskanje značke naprej     
-                                
+                                # TODO: iskanje značke naprej - odločanje kje je
+                                if self.T1Next is None: #self.T1Next[0] == 0 and self.T1Next[1] == 0 and self.T1Next[2] == 0:
+                                    self.arucoNext = 0
+                                    print("Naslednje nisem najdu!")
+                                else:
+                                    razlika = T1[2] - self.T1Next[2]
+                                    print("Razlika:", razlika)
+
+                                    # Tuki so mere še v metrih!
+                                    if razlika > 0.50:
+                                        self.arucoNext = -1
+                                        print("Naslednja je nižje")
+                                    elif razlika < -0.50:
+                                        self.arucoNext = 1
+                                        print("Naslednja je višje")
+                                    else:
+                                        self.arucoNext = 0
+                                        print("Naslednja je ravno")
+
+                                self.T1Next is None
+                                self.arucoId = self.arucoIdReal
                                 self.flightState = self.state_aligne_move
-                            else:
-                                self.searchProtect += 1
+                            
+                            # Naslednji iskan aruco ID
+                            if self.arucoIdReal != self.arucoId:
+                                self.T1Next = T1
 
                         else:
 
                             if self.DroneRead == 1: # upočasni izvajanje
                                 # Rutina iskanja aruco značke
+
                                 if visina >= 280: # 250cm je lahko obroč še
                                     # yaw zasuk v eno in drugo smer
                                     if self.searchyaw == 0:
@@ -565,11 +590,18 @@ class TelloC:
                                         self.ukazOld = 2
                                         self.ukaz = 0
                     
+                    # Skakanje med iskano in naslednjo aruco značko
+                    if self.arucoId == self.arucoIdReal:
+                        self.arucoId += 1
+                    else:
+                        self.arucoId = self.arucoIdReal
+                    
                 
                 #--- PORAVNAVA/PREMIK DRONA ---#
                 case self.state_aligne_move: # 2
 
-                    print("Bubble: ",self.bubble)
+                    print("Bubble: ", self.bubble)
+                    print("Naslednji:", self.arucoNext)
 
                     # INFO: Pazi katere razdalje uporabljaš. Ene so iz T1 druge pa iz self.razdalja (ta je prirejena glede na state)
 
@@ -696,12 +728,14 @@ class TelloC:
                         self.arucoDone = 0
                         self.flipDone = 1
                         self.arucoId += 1
+                        self.arucoIdReal += 1
                         print("Iščem aruco: ", self.arucoId)
                         print("Rotiram")
                     
                     # ROTACIJA - "timer" preden se obrne za 180 deg po flipu
                     if self.droneRotate >= 3:
                         self.flipDone = 0
+                        self.droneRotate = 0
                         self.tello.send_rc_control(0, 0, 0, 60) # za nastavit še 
                         self.flightState = self.state_search
                     
@@ -722,8 +756,15 @@ class TelloC:
                     if self.arucoId != 3 and self.arucoId != 5 and self.arucoDone == 1:
                         self.arucoDone = 0
                         self.arucoId += 1
+                        self.arucoIdReal += 1
                         print("Iščem aruco: ", self.arucoId)
                         self.flightState = self.state_search
+
+                    # Ga pošlje iskat v smer naslednje značke
+                    if self.arucoNext == 1:
+                        self.ukazOld == 1
+                    if self.arucoNext == -1:
+                        self.ukazOld == 2
 
                 #--- PRISTANI ---#
                 case self.state_landign: # 5
