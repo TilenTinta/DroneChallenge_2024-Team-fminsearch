@@ -98,7 +98,7 @@ class TelloC:
         self.A1y = -self.Kpy - 2*self.Kdy/self.dt                   # poenostavitev
         self.A2y = self.Kdy/self.dt                                 # poenostavitev
         # PID - Z (gor/dol)
-        self.Kpz = 0.08                                             # Člen: P 0.08
+        self.Kpz = 0.12                                             # Člen: P 0.08
         self.Kiz = 0.03                                             # Člen: I 0.03
         self.Kdz = 0.01                                             # Člen: D 0.01
         self.A0z = self.Kpz + self.Kiz*self.dt + self.Kdz/self.dt   # poenostavitev
@@ -508,7 +508,9 @@ class TelloC:
                                 self.searchProtect = 0
                                 print("NAJDU!!!")
                                 self.bubble = 0
-                                self.arucoFound = 1   
+                                self.arucoFound = 1 
+                                self.visina = self.tello.get_distance_tof()  
+                                self.visinaOld = self.visina
 
                                 # TODO: iskanje značke naprej     
                                 
@@ -592,9 +594,14 @@ class TelloC:
                     else:
 
                         self.arucoFound = 1 # Če jo najde z odmikom
+                        self.visina = self.tello.get_distance_tof() # V primeru da pride do napake lahko vseeno zazna krog
 
                         # Vodenje s pid regulacijo
                         for i in range(4):
+
+                            self.hitrost[i] = 0
+                            self.razdalja[i] = 0
+
                             if i != 3: # Translacija
                                 self.hitrost[i], self.razdalja[i], self.radij = self.CalculatePID(i,T1_filtered[i])
                             if i == 3 and yaw is not None: # Rotacija
@@ -604,24 +611,43 @@ class TelloC:
                         print("Razdalja:", np.round(self.razdalja,2))
                         print("Radij:", np.round(self.radij,2))
                         print("Hitrost:", self.hitrost)
-                        self.tello.send_rc_control(self.hitrost[1], self.hitrost[0], self.hitrost[2], self.hitrost[3]) # L-R, F-B, U-D, Y
+
+                        if self.bubble == 0:
+                            self.tello.send_rc_control(self.hitrost[1], self.hitrost[0], self.hitrost[2], self.hitrost[3]) # L-R, F-B, U-D, Y
+
+                        if self.bubble == 1 and self.razdalja[0] < 150 and self.radij > 20:
+                            self.tello.send_rc_control(self.hitrost[1], 0, self.hitrost[2], self.hitrost[3]) # L-R, F-B, U-D, Y
 
                         # Preverjam napake - krogi
                         # Vstop v zunanju bubble -> Slow!
                         #if self.razdalja[1] <= 40 and self.razdalja[1] >= -40 and self.razdalja[2] <= 40 and self.razdalja[2] >= -40 and self.razdalja[3] <= 8 and self.razdalja[3] >= -8 and (self.razdalja[0] <= 130 or self.bubble == 1) and self.arucoId != 0: # yaw 3->8
-                        if self.radij < 50 and self.razdalja[3] <= 8 and self.razdalja[3] >= -8 and (self.razdalja[0] <= 150 or self.bubble == 1) and self.arucoId != 0: # yaw 3->8
+                        if self.radij < 55 and self.razdalja[3] <= 8 and self.razdalja[3] >= -8 and (self.razdalja[0] <= 150 or self.bubble == 1) and self.arucoId != 0: # yaw 3->8
                             self.bubble = 1
 
                             #self.tello.send_rc_control(0,-2,0,0) # Brake
+                            if T1_filtered[0] == 0 or T1_filtered[1] == 0 or T1_filtered[2] == 0:
+                                self.bubble = 0
 
                             # Vstop v notranji bubble -> GO!
-                            if self.radij <= 25 and self.razdalja[0] <= 100:
+                            if self.radij <= 20 and self.razdalja[0] <= 100:
                                 self.flightState = self.state_go
                                 self.visina = self.tello.get_height() 
                                 self.visinaOld = self.visina
                                 self.ravnoCnt = 0
                             else:
                                 self.ravnoCnt += 1
+
+                            # Ko zazna veliko spremembo v višini ve da je skozi obroč
+                            if self.visinaOld - self.visina > 40:
+                                print("Obroč!!!")
+                                self.tello.send_rc_control(0,20,0,0)
+                                self.arucoDone = 1
+                                self.bubble = 0
+                                # v vsakem primeru gre v flip al ga rabi ali ne
+                                self.flightState = self.state_flip
+                            else:
+                                self.visinaOld = self.visina # upade višine
+                                print("Visina:", self.visina)
 
                         # Preverjam napake - pristanek
                         if self.razdalja[1] <= 15 and self.razdalja[1] >= -15 and self.razdalja[2] <= 20 and self.razdalja[2] >= -20 and self.razdalja[0] <= 30 and self.razdalja[3] <= 3 and self.razdalja[3] >= -3 and self.arucoId == 0: 
@@ -634,7 +660,7 @@ class TelloC:
                             else:
                                 self.ravnoCnt += 1
                         
-                        if self.radij > 50 and self.razdalja[0] > 110 and  self.bubble == 1:
+                        if self.radij > 50 and self.razdalja[0] > 110 and self.bubble == 1:
                             self.bubble = 0
                             
                 
@@ -642,30 +668,30 @@ class TelloC:
                 case self.state_go: # 3
 
                     self.visina = self.tello.get_distance_tof()
-                    #print("TOF:", self.visina)
                     print("GO!, Visina:", self.visina, "VisinaOld:", self.visinaOld)
 
                     # Ko zazna veliko spremembo v višini ve da je skozi obroč
-                    if self.visinaOld - self.visina > 30: #and self.korakiSkozi < 4
+                    if self.visinaOld - self.visina > 40: #and self.korakiSkozi < 4
                         print("Obroč!!!")
-                        self.tello.send_rc_control(0,10,0,0)
+                        self.tello.send_rc_control(0,20,0,0)
                         self.arucoDone = 1
                         self.bubble = 0
                         # v vsakem primeru gre v flip al ga rabi ali ne
                         self.flightState = self.state_flip
                     else:
-                        if self.korakiSkozi < 6 and self.DroneRead == 1:
-                            self.tello.send_rc_control(0, 10, 0, 0) # L-R, F-B, U-D, Y
+                        if self.korakiSkozi < 4 and self.DroneRead == 1:
+                            self.tello.send_rc_control(0, 15, 0, 0) # L-R, F-B, U-D, Y
                             self.korakiSkozi += 1
                         self.visinaOld = self.visina # upade višine
                         
                 
                 #--- FLIP ---#
                 case self.state_flip: # 4
-                    print("Flip")
+                    self.bubble = 0
 
                     # FLIP - po preletenih prvih treh obročih
                     if self.arucoId == 3 and self.arucoDone == 1: 
+                        print("Flip")
                         #self.tello.flip_left()
                         self.arucoDone = 0
                         self.flipDone = 1
@@ -684,6 +710,7 @@ class TelloC:
 
                     # FLIP - po preletenih vseh obročih
                     if self.arucoId == 5 and self.arucoDone == 1: 
+                        print("Flip")
                         self.tello.flip_left()
                         self.flipDone = 1
                         self.arucoDone = 0
@@ -694,7 +721,7 @@ class TelloC:
                     # Skoči nazaj v iskanje
                     if self.arucoId != 3 and self.arucoId != 5 and self.arucoDone == 1:
                         self.arucoDone = 0
-                        self.arucoId =+ 1
+                        self.arucoId += 1
                         print("Iščem aruco: ", self.arucoId)
                         self.flightState = self.state_search
 
