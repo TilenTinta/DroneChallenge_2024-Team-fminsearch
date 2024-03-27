@@ -86,33 +86,36 @@ class TelloC:
         self.sample = 0.032                                         # sample time povprečna vrednost glede na default sample rate ControlAll
         self.dt = self.sample           
         # PID - X (naprej/nazaj)
-        self.Kpx = 0.008                                            # Člen: P 0.010
-        self.Kix = 0.050                                            # Člen: I 0.050
-        self.Kdx = 0.000                                            # Člen: D 0.000
+        self.Kpx = 0.030                                            # Člen: P 0.008
+        self.Kix = 0.025                                            # Člen: I 0.050
+        self.Kdx = 0.002                                            # Člen: D 0.000
         self.A0x = self.Kpx + self.Kix*self.dt + self.Kdx/self.dt   # poenostavitev
         self.A1x = -self.Kpx - 2*self.Kdx/self.dt                   # poenostavitev
         self.A2x = self.Kdx/self.dt                                 # poenostavitev
         # PID - Y (levo/desno)
         self.Kpy = 0.30                                             # Člen: P 0.30
-        self.Kiy = 0.04                                             # Člen: I 0.04
+        self.Kiy = 0.00                                             # Člen: I 0.04
         self.Kdy = 0.02                                             # Člen: D 0.02
         self.A0y = self.Kpy + self.Kiy*self.dt + self.Kdy/self.dt   # poenostavitev
         self.A1y = -self.Kpy - 2*self.Kdy/self.dt                   # poenostavitev
         self.A2y = self.Kdy/self.dt                                 # poenostavitev
         # PID - Z (gor/dol)
-        self.Kpz = 0.12                                             # Člen: P 0.08
-        self.Kiz = 0.10                                             # Člen: I 0.03
-        self.Kdz = 0.01                                             # Člen: D 0.01
+        self.Kpz = 0.30                                             # Člen: P 0.30
+        self.Kiz = 0.00                                            # Člen: I 0.00
+        self.Kdz = 0.02                                             # Člen: D 0.02
         self.A0z = self.Kpz + self.Kiz*self.dt + self.Kdz/self.dt   # poenostavitev
         self.A1z = -self.Kpz - 2*self.Kdz/self.dt                   # poenostavitev
         self.A2z = self.Kdz/self.dt                                 # poenostavitev
         # PID - YAW (rotacija)
-        self.Kpr = 0.50                                             # Člen: P 0.40
+        self.Kpr = 0.50                                             # Člen: P 0.50
         self.Kir = 0.05                                             # Člen: I 0.05
         self.Kdr = 0.00                                             # Člen: D 0.00
         self.A0r = self.Kpr + self.Kir*self.dt + self.Kdr/self.dt   # poenostavitev
         self.A1r = -self.Kpr - 2*self.Kdr/self.dt                   # poenostavitev
         self.A2r = self.Kdr/self.dt                                 # poenostavitev
+
+        self.errorClear = 0                                         # Brisanje napake zaradi koeficienta I
+        self.errorFlag = 0                                          # Zastavica za brisanje napake
         
         n = 3 # napake
         m = 4 # osi 
@@ -507,7 +510,7 @@ class TelloC:
                         if T1 is not None and T2 is not None and yaw is not None and self.tello.is_flying:
 
                             # Trenutno iskan aruco ID
-                            if self.arucoIdReal == self.arucoId:
+                            #if self.arucoIdReal == self.arucoId:
                                 self.searchProtect = 0
                                 print("NAJDU!!!")
                                 self.bubble = 0
@@ -516,6 +519,7 @@ class TelloC:
                                 self.visinaOld = self.visina
 
                                 # TODO: iskanje značke naprej - odločanje kje je
+                                """
                                 if self.T1Next is None: #self.T1Next[0] == 0 and self.T1Next[1] == 0 and self.T1Next[2] == 0:
                                     self.arucoNext = 0
                                     print("Naslednje nisem najdu!")
@@ -533,9 +537,10 @@ class TelloC:
                                     else:
                                         self.arucoNext = 0
                                         print("Naslednja je ravno")
+                                """
 
                                 # Če je na meji videa ga hitro zgubi
-                                if T1[2] >= 0: self.tello.send_rc_control(0,0,20,0)
+                                if T1[2] <= 0: self.tello.send_rc_control(0,0,20,0)
                                 if T1[2] > 0: self.tello.send_rc_control(0,0,-10,0)
 
                                 self.T1Next is None
@@ -543,8 +548,8 @@ class TelloC:
                                 self.flightState = self.state_aligne_move
                             
                             # Naslednji iskan aruco ID
-                            if self.arucoIdReal != self.arucoId:
-                                self.T1Next = T1
+                            #if self.arucoIdReal != self.arucoId:
+                            #    self.T1Next = T1
 
                         else:
 
@@ -595,11 +600,12 @@ class TelloC:
                                         self.ukaz = 0
                     
                     # Skakanje med iskano in naslednjo aruco značko
+                    """
                     if self.arucoId == self.arucoIdReal:
                         self.arucoId += 1
                     else:
                         self.arucoId = self.arucoIdReal
-                    
+                    """
                 
                 #--- PORAVNAVA/PREMIK DRONA ---#
                 case self.state_aligne_move: # 2
@@ -614,6 +620,7 @@ class TelloC:
                     if T1 is None and T2 is None and yaw is None and self.tello.is_flying and self.bubble == 0:
                         print("Zgubu!") 
                         self.bubble = 0
+                        self.errorClear = 0
 
                         # Dodatna možnost da najde značko če overshoota
                         if self.arucoFound == 1 :
@@ -653,20 +660,29 @@ class TelloC:
                             self.tello.send_rc_control(self.hitrost[1], self.hitrost[0], self.hitrost[2], self.hitrost[3]) # L-R, F-B, U-D, Y
 
                         if self.bubble == 1 and self.razdalja[0] < 150 and self.radij > 20:
-                            self.tello.send_rc_control(self.hitrost[1], 0, self.hitrost[2], self.hitrost[3]) # L-R, F-B, U-D, Y
+                            self.tello.send_rc_control(self.hitrost[1], self.hitrost[0], self.hitrost[2], self.hitrost[3]) # L-R, F-B, U-D, Y
+
+                        if self.razdalja[0] == 100 and self.razdalja[1] == 0 and self.razdalja[2] == 30 and self.razdalja[3] == 0:
+                            self.bubble = 0 
+                            self.errorClear = 0
 
                         # Preverjam napake - krogi
                         # Vstop v zunanju bubble -> Slow!
                         #if self.razdalja[1] <= 40 and self.razdalja[1] >= -40 and self.razdalja[2] <= 40 and self.razdalja[2] >= -40 and self.razdalja[3] <= 8 and self.razdalja[3] >= -8 and (self.razdalja[0] <= 130 or self.bubble == 1) and self.arucoId != 0: # yaw 3->8
-                        if self.radij < 55 and self.razdalja[3] <= 8 and self.razdalja[3] >= -8 and (self.razdalja[0] <= 150 or self.bubble == 1) and self.arucoId != 0: # yaw 3->8
+                        if self.radij < 55 and self.razdalja[3] <= 8 and self.razdalja[3] >= -8 and (self.razdalja[0] <= 120 or self.bubble == 1) and self.arucoId != 0: # yaw 3->8
                             self.bubble = 1
 
+                            # Brisanje napake zaradi I člena
+                            if self.errorFlag == 0 and self.errorClear == 0:
+                                self.errorFlag = 1
+
                             #self.tello.send_rc_control(0,-2,0,0) # Brake
-                            if T1_filtered[0] == 0 or T1_filtered[1] == 0 or T1_filtered[2] == 0:
+                            if T1_filtered[0] == 0 or T1_filtered[1] == 0 or T1_filtered[2] == 0 and self.razdalja[3] <= 8 and self.razdalja[3] <= 4 and self.razdalja[3] >= -4 and self.razdalja[3] >= -8:
                                 self.bubble = 0
 
                             # Vstop v notranji bubble -> GO!
-                            if self.radij <= 20 and self.razdalja[0] <= 100:
+                            if self.radij <= 23 and self.razdalja[0] <= 100:
+                                print("Notranji bubble")
                                 self.flightState = self.state_go
                                 self.visina = self.tello.get_height() 
                                 self.visinaOld = self.visina
@@ -699,13 +715,14 @@ class TelloC:
                         
                         if self.radij > 50 and self.razdalja[0] > 110 and self.bubble == 1:
                             self.bubble = 0
+                            self.errorClear = 0
                             
                 
                 #--- LETI SKOZI OBROČ ---#
                 case self.state_go: # 3
-
+                    print("GO!")
                     self.visina = self.tello.get_distance_tof()
-                    print("GO!, Visina:", self.visina, "VisinaOld:", self.visinaOld)
+                    #print("GO!, Visina:", self.visina, "VisinaOld:", self.visinaOld)
 
                     # Ko zazna veliko spremembo v višini ve da je skozi obroč
                     if self.visinaOld - self.visina > 40: #and self.korakiSkozi < 4
@@ -717,7 +734,7 @@ class TelloC:
                         self.flightState = self.state_flip
                     else:
                         if self.korakiSkozi < 4 and self.DroneRead == 1:
-                            self.tello.send_rc_control(0, 15, 0, 0) # L-R, F-B, U-D, Y
+                            self.tello.send_rc_control(0, 30, 0, 0) # L-R, F-B, U-D, Y
                             self.korakiSkozi += 1
                         self.visinaOld = self.visina # upade višine
                         
@@ -805,6 +822,13 @@ class TelloC:
         # Pretvorba m -> cm (brez yaw)
         if os != 3: trenutnaVrednost = trenutnaVrednost * 100
 
+        if self.errorFlag == 1 and self.errorClear == 0:
+            self.napaka[os][2] = 0
+            self.napaka[os][1] = 0
+            self.napaka[os][0] = 0
+            self.errorFlag = 0
+            self.errorClear = 1
+
         # Shranjevanje stare napake
         self.napaka[os][2] = self.napaka[os][1]
         self.napaka[os][1] = self.napaka[os][0]
@@ -834,7 +858,7 @@ class TelloC:
         else:
             speed = int(self.izhod[os])
 
-        if self.bubble == 1 and os == 0 and self.radij > 40:
+        if self.bubble == 1 and os == 0 and self.radij >= 30:
             speed = 0
 
         if self.bubble == 1 and os == 0 and self.radij < 30:
