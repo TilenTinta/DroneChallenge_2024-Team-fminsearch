@@ -60,7 +60,7 @@ class TelloC:
         self.state_landign = 5          # pristani
         self.state_off = 6              # ugasni se
 
-        self.arucoId = 2                # spreminjanje iskane aruco značke   
+        self.arucoId = 3                # spreminjanje iskane aruco značke   
         self.arucoList = [0,1,2,3,4,5]  # vse možne aruco značke
         self.arucoFound = 0             # trenutna aruco značka najdena
         self.arucoDone = 0              # 0 - ni še preletel, 1 - je preletel (za namen flipa da ve kdaj naj ga nardi)
@@ -681,7 +681,7 @@ class TelloC:
                                 self.bubble = 0
 
                             # Vstop v notranji bubble -> GO!
-                            if self.radij <= 23 and self.razdalja[0] <= 100:
+                            if self.radij <= 20 and self.razdalja[0] <= 100:
                                 print("Notranji bubble")
                                 self.flightState = self.state_go
                                 self.visina = self.tello.get_height() 
@@ -746,7 +746,13 @@ class TelloC:
                     # FLIP - po preletenih prvih treh obročih
                     if self.arucoId == 3 and self.arucoDone == 1: 
                         print("Flip")
-                        #self.tello.flip_left()
+
+                        # Če je manj kot 50% ne nardi flipa
+                        bat = self.tello.get_battery()
+                        if bat > 50:
+                            print("No battery, no fun!")
+                            self.tello.flip_left()
+
                         self.arucoDone = 0
                         self.flipDone = 1
                         self.arucoId += 1
@@ -755,7 +761,7 @@ class TelloC:
                         print("Rotiram")
                     
                     # ROTACIJA - "timer" preden se obrne za 180 deg po flipu
-                    if self.droneRotate >= 3:
+                    if self.droneRotate >= 2:
                         self.flipDone = 0
                         self.droneRotate = 0
                         self.tello.send_rc_control(0, 0, 0, 60) # za nastavit še 
@@ -767,7 +773,13 @@ class TelloC:
                     # FLIP - po preletenih vseh obročih
                     if self.arucoId == 5 and self.arucoDone == 1: 
                         print("Flip")
-                        self.tello.flip_left()
+
+                        # Če je manj kot 50% ne nardi flipa
+                        bat = self.tello.get_battery()
+                        if bat > 50:
+                            print("No battery, no fun!")
+                            self.tello.flip_left()
+
                         self.flipDone = 1
                         self.arucoDone = 0
                         self.arucoId = 0
