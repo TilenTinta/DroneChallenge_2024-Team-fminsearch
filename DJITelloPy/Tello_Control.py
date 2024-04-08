@@ -94,27 +94,27 @@ class TelloC:
         # PID - Y (levo/desno)
         self.Kpy = 0.50                                             # Člen: P 0.50
         self.Kiy = 0.00                                             # Člen: I 0.00
-        self.Kdy = 0.03                                             # Člen: D 0.02
+        self.Kdy = 0.02                                             # Člen: D 0.02
         self.A0y = self.Kpy + self.Kiy*self.dt + self.Kdy/self.dt   # poenostavitev
         self.A1y = -self.Kpy - 2*self.Kdy/self.dt                   # poenostavitev
         self.A2y = self.Kdy/self.dt                                 # poenostavitev
         # PID - Z (gor/dol)
-        self.Kpz = 0.40                                             # Člen: P 0.40
-        self.Kiz = 0.00                                             # Člen: I 0.00
-        self.Kdz = 0.07                                             # Člen: D 0.07
+        self.Kpz = 0.400                                             # Člen: P 0.40
+        self.Kiz = 0.000                                             # Člen: I 0.00
+        self.Kdz = 0.050                                             # Člen: D 0.07
         self.A0z = self.Kpz + self.Kiz*self.dt + self.Kdz/self.dt   # poenostavitev
         self.A1z = -self.Kpz - 2*self.Kdz/self.dt                   # poenostavitev
         self.A2z = self.Kdz/self.dt                                 # poenostavitev
         # PID - YAW (rotacija)
-        self.Kpr = 0.50                                             # Člen: P 0.50
-        self.Kir = 0.05                                             # Člen: I 0.05
-        self.Kdr = 0.00                                             # Člen: D 0.00
+        self.Kpr = 0.500                                             # Člen: P 0.50
+        self.Kir = 0.050                                             # Člen: I 0.05
+        self.Kdr = 0.000                                             # Člen: D 0.00
         self.A0r = self.Kpr + self.Kir*self.dt + self.Kdr/self.dt   # poenostavitev
         self.A1r = -self.Kpr - 2*self.Kdr/self.dt                   # poenostavitev
         self.A2r = self.Kdr/self.dt                                 # poenostavitev
 
         # PID Bubble - X (naprej/nazaj)
-        self.Kpxb = 0.010                                            # Člen: P 0.015
+        self.Kpxb = 0.100                                            # Člen: P 0.015
         self.Kixb = 0.000                                            # Člen: I 0.020
         self.Kdxb = 0.002                                            # Člen: D 0.002
         self.A0xb = self.Kpxb + self.Kixb*self.dt + self.Kdxb/self.dt# poenostavitev
@@ -695,6 +695,12 @@ class TelloC:
                                 #break
                                 self.hitrost[i], self.razdalja[i], self.radij = self.CalculatePID(i,yaw)
 
+                        for i in range(4):
+                            if self.hitrost[i] > 20:
+                                self.hitrost[i] = 20
+                            if self.hitrost[i] < -20:
+                                self.hitrost[i] = -20
+
                         print("Razdalja:", np.round(self.razdalja,2))
                         print("Radij:", np.round(self.radij,2))
                         print("Hitrost:", self.hitrost)
@@ -782,11 +788,11 @@ class TelloC:
                     print("Delta:", delta)
 
                     # Ko zazna veliko spremembo v višini, ve da je skozi obroč
-                    if delta > 30 or delta < -30 or self.korakiSkozi > 8: # omejitev korakov
+                    if delta > 30 or delta < -30 or self.korakiSkozi > 6: # omejitev korakov
                         print("Obroč!!!")
                         self.errorFlag = 1
                         self.errorClear = 0
-                        self.tello.send_rc_control(0,3,0,0)
+                        self.tello.send_rc_control(0,-3,0,0)
                         self.arucoDone = 1
                         self.bubble = 0
                         self.flightState = self.state_flip # v vsakem primeru gre v flip al ga rabi ali ne
