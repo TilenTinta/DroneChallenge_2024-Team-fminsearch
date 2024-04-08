@@ -85,7 +85,7 @@ class TelloC:
         self.sample = 0.032                                         # sample time povprečna vrednost glede na default sample rate ControlAll
         self.dt = self.sample           
         # PID - X (naprej/nazaj)
-        self.Kpx = 0.040                                            # Člen: P 0.040
+        self.Kpx = 0.035                                            # Člen: P 0.040
         self.Kix = 0.025                                            # Člen: I 0.025
         self.Kdx = 0.002                                            # Člen: D 0.002
         self.A0x = self.Kpx + self.Kix*self.dt + self.Kdx/self.dt   # poenostavitev
@@ -94,7 +94,7 @@ class TelloC:
         # PID - Y (levo/desno)
         self.Kpy = 0.50                                             # Člen: P 0.50
         self.Kiy = 0.00                                             # Člen: I 0.00
-        self.Kdy = 0.02                                             # Člen: D 0.02
+        self.Kdy = 0.03                                             # Člen: D 0.02
         self.A0y = self.Kpy + self.Kiy*self.dt + self.Kdy/self.dt   # poenostavitev
         self.A1y = -self.Kpy - 2*self.Kdy/self.dt                   # poenostavitev
         self.A2y = self.Kdy/self.dt                                 # poenostavitev
@@ -114,8 +114,8 @@ class TelloC:
         self.A2r = self.Kdr/self.dt                                 # poenostavitev
 
         # PID Bubble - X (naprej/nazaj)
-        self.Kpxb = 0.015                                            # Člen: P 0.040
-        self.Kixb = 0.020                                            # Člen: I 0.025
+        self.Kpxb = 0.010                                            # Člen: P 0.015
+        self.Kixb = 0.010                                            # Člen: I 0.020
         self.Kdxb = 0.002                                            # Člen: D 0.002
         self.A0xb = self.Kpxb + self.Kixb*self.dt + self.Kdxb/self.dt# poenostavitev
         self.A1xb = -self.Kpxb - 2*self.Kdxb/self.dt                 # poenostavitev
@@ -123,14 +123,14 @@ class TelloC:
         # PID Bubble - Y (levo/desno)
         self.Kpyb = 0.30                                             # Člen: P 0.30
         self.Kiyb = 0.00                                             # Člen: I 0.00
-        self.Kdyb = 0.05                                             # Člen: D 0.02
+        self.Kdyb = 0.05                                             # Člen: D 0.05
         self.A0yb = self.Kpyb + self.Kiyb*self.dt + self.Kdyb/self.dt# poenostavitev
         self.A1yb = -self.Kpyb - 2*self.Kdyb/self.dt                 # poenostavitev
         self.A2yb = self.Kdyb/self.dt                                # poenostavitev
         # PID Bubble - Z (gor/dol)
         self.Kpzb = 0.30                                             # Člen: P 0.30
         self.Kizb = 0.00                                             # Člen: I 0.00
-        self.Kdzb = 0.05                                             # Člen: D 0.02
+        self.Kdzb = 0.05                                             # Člen: D 0.05
         self.A0zb = self.Kpzb + self.Kizb*self.dt + self.Kdzb/self.dt# poenostavitev
         self.A1zb = -self.Kpzb - 2*self.Kdzb/self.dt                  # poenostavitev
         self.A2zb = self.Kdzb/self.dt                                # poenostavitev
@@ -572,12 +572,12 @@ class TelloC:
 
                             # Če je na meji videa ga hitro zgubi (mora bit izvem bubbla)
                             if T1[2] <= 0 and T1[0] > 150: 
-                                self.tello.send_rc_control(0,0,-20,0)
+                                self.tello.send_rc_control(0,0,20,0)
                                 self.ukazOld = 2
                                 self.ukaz = 2
 
                             if T1[2] > 0 and T1[0] > 150: 
-                                self.tello.send_rc_control(0,0,20,0)
+                                self.tello.send_rc_control(0,0,-20,0)
                                 self.ukazOld = 1
                                 self.ukaz = 1
 
@@ -602,10 +602,10 @@ class TelloC:
                                 if visina >= 180: # 250cm je lahko obroč še
                                     # yaw zasuk v eno in drugo smer
                                     if self.searchyaw == 0:
-                                        self.tello.send_rc_control(0,0,20,-10)
+                                        self.tello.send_rc_control(0,0,-20,-10)
                                         self.searchyaw = -1
                                     if self.searchyaw == 1:
-                                        self.tello.send_rc_control(0,0,20,10)
+                                        self.tello.send_rc_control(0,0,-20,10)
                                         self.searchyaw = 2
                                     
                                     self.ukazOld = 2
@@ -613,10 +613,10 @@ class TelloC:
                                 if visina <= 50:
                                     self.ukazOld = 1
                                     if self.searchyaw == -1:
-                                        self.tello.send_rc_control(0,0,-20,10)
+                                        self.tello.send_rc_control(0,0,20,10)
                                         self.searchyaw = 1
                                     if self.searchyaw == 2:
-                                        self.tello.send_rc_control(0,0,-20,-10)
+                                        self.tello.send_rc_control(0,0,20,-10)
                                         self.searchyaw = 0
 
                                 # če je prenizko, se dvigni
@@ -734,6 +734,9 @@ class TelloC:
                             # Vodenje v bubblu
                             if self.bubble == 1:
                                     print("PID v bubblu")
+                                    if self.razdalja[0] == 100 and self.razdalja[1] == 0 and self.razdalja[2] == 30 and self.razdalja[3] == 0:
+                                        print("DEFAULT NAPAKA")
+                                        self.bubble = 0
                                     if self.bilVBubblu == 0:
                                         self.tello.send_rc_control(self.hitrost[1], self.hitrost[0], self.hitrost[2], self.hitrost[3]) # L-R, F-B, U-D, Y
                                     else:
@@ -742,7 +745,7 @@ class TelloC:
 
                             print("Bubble: ", self.bubble)
                             # Vstop v notranji bubble -> GO!
-                            if self.radij <= 22 and self.razdalja[0] <= 95 and self.razdalja[0] > 70 and abs(self.razdalja[3]) <= 5 and self.bubble == 1: # 100
+                            if self.radij <= 22 and self.razdalja[0] <= 90 and self.razdalja[0] > 60 and abs(self.razdalja[3]) <= 5 and self.bubble == 1 and self.bilVBubblu == 0: # 100
                                 print("Notranji bubble -> GO!")
                                 self.flightState = self.state_go
                                 self.visina = self.tello.get_height() 
@@ -780,7 +783,7 @@ class TelloC:
                     print("Delta:", delta)
 
                     # Ko zazna veliko spremembo v višini, ve da je skozi obroč
-                    if delta > 30 or delta < -30 : # and self.korakiSkozi < 8: # omejitev korakov
+                    if delta > 30 or delta < -30 or self.korakiSkozi > 8: # omejitev korakov
                         print("Obroč!!!")
                         self.errorFlag = 1
                         self.errorClear = 0
@@ -951,12 +954,20 @@ class TelloC:
             if os == 3: self.izhod[os] = self.izhod[os] + self.A0rb * self.napaka[os][0] + self.A1rb * self.napaka[os][1] + self.A2rb * self.napaka[os][2] # YAW - rotacija
         
         # Limit output (rabljen speed da se ne križa s self.hitrost)
-        if self.izhod[os] > 30: 
-            speed = 0
-            speed = 30 
+        hitrost = self.izhod[os]
+        if hitrost > 20 and self.bubble == 0: 
+            speed = 15 
+        elif hitrost < -20 and self.bubble == 0: 
+            speed = -15 
         else:
-            speed = 0
-            speed = int(self.izhod[os])
+            speed = int(hitrost)
+            
+        if hitrost > 20 and self.bubble == 1: 
+            speed = 15 
+        if hitrost < -20 and self.bubble == 1: 
+            speed = -15 
+        else:
+            speed = int(hitrost)
 
         # Računaje radija
         if os == 1:
