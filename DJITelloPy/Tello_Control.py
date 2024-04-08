@@ -85,8 +85,8 @@ class TelloC:
         self.sample = 0.032                                         # sample time povprečna vrednost glede na default sample rate ControlAll
         self.dt = self.sample           
         # PID - X (naprej/nazaj)
-        self.Kpx = 0.035                                            # Člen: P 0.040
-        self.Kix = 0.025                                            # Člen: I 0.025
+        self.Kpx = 0.100                                            # Člen: P 0.040
+        self.Kix = 0.000                                            # Člen: I 0.025
         self.Kdx = 0.002                                            # Člen: D 0.002
         self.A0x = self.Kpx + self.Kix*self.dt + self.Kdx/self.dt   # poenostavitev
         self.A1x = -self.Kpx - 2*self.Kdx/self.dt                   # poenostavitev
@@ -115,7 +115,7 @@ class TelloC:
 
         # PID Bubble - X (naprej/nazaj)
         self.Kpxb = 0.010                                            # Člen: P 0.015
-        self.Kixb = 0.010                                            # Člen: I 0.020
+        self.Kixb = 0.000                                            # Člen: I 0.020
         self.Kdxb = 0.002                                            # Člen: D 0.002
         self.A0xb = self.Kpxb + self.Kixb*self.dt + self.Kdxb/self.dt# poenostavitev
         self.A1xb = -self.Kpxb - 2*self.Kdxb/self.dt                 # poenostavitev
@@ -708,8 +708,7 @@ class TelloC:
                                 self.bubble = 0
                             else:
                                 print("Klasično vodenje")
-                                self.tello.send_rc_control(self.hitrost[1], self.hitrost[0], self.hitrost[2], self.hitrost[3]) # L-R, F-B, U-D, Y                     
-                    
+                                self.tello.send_rc_control(self.hitrost[1], self.hitrost[0], self.hitrost[2], self.hitrost[3]) # L-R, F-B, U-D, Y 
 
                         # Preverjam napake - krogi #
                         # Vstop v zunanju bubble -> Slow!
@@ -748,7 +747,7 @@ class TelloC:
                             if self.radij <= 22 and self.razdalja[0] <= 90 and self.razdalja[0] > 60 and abs(self.razdalja[3]) <= 5 and self.bubble == 1 and self.bilVBubblu == 0: # 100
                                 print("Notranji bubble -> GO!")
                                 self.flightState = self.state_go
-                                self.visina = self.tello.get_height() 
+                                self.visina = self.tello.get_distance_tof() 
                                 self.visinaOld = self.visina
                         
 
@@ -956,16 +955,16 @@ class TelloC:
         # Limit output (rabljen speed da se ne križa s self.hitrost)
         hitrost = self.izhod[os]
         if hitrost > 20 and self.bubble == 0: 
-            speed = 15 
+            speed = 20 
         elif hitrost < -20 and self.bubble == 0: 
-            speed = -15 
+            speed = -20 
         else:
             speed = int(hitrost)
             
         if hitrost > 20 and self.bubble == 1: 
-            speed = 15 
+            speed = 20 
         if hitrost < -20 and self.bubble == 1: 
-            speed = -15 
+            speed = -20 
         else:
             speed = int(hitrost)
 
