@@ -780,7 +780,7 @@ class TelloC:
                                 self.errorClear = 0
 
                             print("Bubble: ", self.bubble)
-                            if self.radij <= 30 and self.razdalja[0] <= 100 and self.razdalja[3] <= 5 and self.razdalja[3] >= -5 and self.bubble == 1: # 100:
+                            if self.radij <= 30 and self.razdalja[0] <= 80 and self.razdalja[3] <= 5 and self.razdalja[3] >= -5 and self.bubble == 1: # 100:
                                 print("Notranji bubble -> Pristajam!")
                                 self.flightState = self.state_landign
                                 self.bubble = 0
@@ -953,7 +953,7 @@ class TelloC:
              self.napaka[os][0] = 0 - trenutnaVrednost
         if os == 2: # gor / dol
             if self.arucoId != 0 and self.arucoId != 5: self.napaka[os][0] = trenutnaVrednost + 30 # za kroge
-            if self.arucoId != 0 and self.arucoId == 5: self.napaka[os][0] = trenutnaVrednost - 5  # za kroge
+            if self.arucoId != 0 and self.arucoId == 5: self.napaka[os][0] = trenutnaVrednost + 30  # za kroge -5
             if self.arucoId == 0: self.napaka[os][0] = trenutnaVrednost + 00 # Za pristanek 
         if os == 3: # yaw ! ne dat else: ker ne dela nič več (pojma nimam zakaj ne)
             if trenutnaVrednost > 3 or trenutnaVrednost < 3: self.napaka[os][0] = 0 - trenutnaVrednost
