@@ -60,7 +60,7 @@ class TelloC:
         self.state_landign = 5          # pristani
         self.state_off = 6              # ugasni se
 
-        self.arucoId = 4                # spreminjanje iskane aruco značke   
+        self.arucoId = 0                # spreminjanje iskane aruco značke   
         self.arucoFound = 0             # trenutna aruco značka najdena
         self.arucoDone = 0              # 0 - ni še preletel, 1 - je preletel (za namen flipa da ve kdaj naj ga nardi)
         self.arucoNext = 0              # 1 - naslednja značka je višje od trenutne, -1 - naslednja značka je nižje od trenutne, 0 - naslednja značka je vzporedno s trenutno
@@ -751,7 +751,7 @@ class TelloC:
                                 if self.bilVBubblu == 0:
                                     self.tello.send_rc_control(self.hitrost[1], self.hitrost[0], self.hitrost[2], self.hitrost[3]) # L-R, F-B, U-D, Y
                                 else:
-                                    self.tello.send_rc_control(self.hitrost[1], 3, self.hitrost[2], self.hitrost[3]) # L-R, F-B, U-D, Y
+                                    self.tello.send_rc_control(self.hitrost[1], 6, self.hitrost[2], self.hitrost[3]) # L-R, F-B, U-D, Y
                                     if self.radij < 40: self.bilVBubblu = 0
 
                             print("Bubble: ", self.bubble)
@@ -779,8 +779,20 @@ class TelloC:
                                 self.bubble = 0 
                                 self.errorClear = 0
 
+                            # Vodenje v bubblu
+                            if self.bubble == 1:
+                                print("PID v bubblu")
+                                if self.razdalja[0] == 100 and self.razdalja[1] == 0 and self.razdalja[2] == 0 and self.razdalja[3] == 0:
+                                    print("DEFAULT NAPAKA")
+                                    self.bubble = 0
+                                if self.bilVBubblu == 0:
+                                    self.tello.send_rc_control(self.hitrost[1], self.hitrost[0], self.hitrost[2], self.hitrost[3]) # L-R, F-B, U-D, Y
+                                else:
+                                    self.tello.send_rc_control(self.hitrost[1], 6, self.hitrost[2], self.hitrost[3]) # L-R, F-B, U-D, Y
+                                    if self.radij < 40: self.bilVBubblu = 0
+
                             print("Bubble: ", self.bubble)
-                            if self.radij <= 30 and self.razdalja[0] <= 80 and self.razdalja[3] <= 5 and self.razdalja[3] >= -5 and self.bubble == 1: # 100:
+                            if self.radij <= 30 and self.razdalja[0] <= 60 and self.razdalja[3] <= 5 and self.razdalja[3] >= -5 and self.bubble == 1: # 100:
                                 print("Notranji bubble -> Pristajam!")
                                 self.flightState = self.state_landign
                                 self.bubble = 0
