@@ -18,6 +18,8 @@ class TelloC:
     def __init__(self):  
 
         ### Osnoven program za drona ###
+        # team: fminsearch
+        
         # Ne spreminjat -> #
         self.root = tki.Tk()
         self.root.title("TELLO Controller")
