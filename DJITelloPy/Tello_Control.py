@@ -655,7 +655,7 @@ class TelloC:
                         print("Hitrost:", self.hitrost)
 
                         # Napaka ko so default vrednosti okej
-                        if self.razdalja[0] == 100 and self.razdalja[1] == 0 and (self.razdalja[2] == 30 or self.razdalja[2] == 0) and self.razdalja[3] == 0:
+                        if self.razdalja[0] == 100 and self.razdalja[1] == 0 and (self.razdalja[2] == 30 or self.razdalja[2] == 0 or self.razdalja[2] == -5) and self.razdalja[3] == 0:
                             print("DEFAULT NAPAKA")
                             T1 = None
                             self.bubble = 0
@@ -745,7 +745,7 @@ class TelloC:
                             ### Ni v nobenem bubblu -> klasično vodenje ###
                             if self.bubble == 0:
                                 # Napaka ko so default vrednosti okej
-                                if self.razdalja[0] == 100 and self.razdalja[1] == 0 and (self.razdalja[2] == 30 or self.razdalja[2] == 0) and self.razdalja[3] == 0:
+                                if self.razdalja[0] == 100 and self.razdalja[1] == 0 and (self.razdalja[2] == 30 or self.razdalja[2] == 0 or self.razdalja[2] == -5) and self.razdalja[3] == 0:
                                     print("DEFAULT NAPAKA")
                                     T1 = None
                                     self.bubble = 0
