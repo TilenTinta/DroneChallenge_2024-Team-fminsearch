@@ -19,7 +19,7 @@ class TelloC:
 
         ### Osnoven program za drona ###
         # team: fminsearch
-        
+
         # Ne spreminjat -> #
         self.root = tki.Tk()
         self.root.title("TELLO Controller")
@@ -55,7 +55,7 @@ class TelloC:
         self.state_landign = 5          # pristani
         self.state_off = 6              # ugasni se
 
-        self.arucoId = 1                # spreminjanje iskane aruco značke   
+        self.arucoId = 4                # spreminjanje iskane aruco značke   
         self.arucoFound = 0             # trenutna aruco značka najdena
         self.arucoDone = 0              # 0 - ni še preletel, 1 - je preletel (za namen flipa da ve kdaj naj ga nardi)
         self.searchProtect = 0          # zaščita da ne najde prav vsake packe kot aruco
@@ -77,59 +77,59 @@ class TelloC:
         self.sample = 0.032                                         # sample time povprečna vrednost glede na default sample rate ControlAll
         self.dt = self.sample           
         # PID - X (naprej/nazaj)
-        self.Kpx = 0.060                                            # Člen: P 0.040
-        self.Kix = 0.003                                            # Člen: I 0.025
+        self.Kpx = 0.060                                            # Člen: P 0.060
+        self.Kix = 0.003                                            # Člen: I 0.003
         self.Kdx = 0.002                                            # Člen: D 0.002
         self.A0x = self.Kpx + self.Kix*self.dt + self.Kdx/self.dt   # poenostavitev
         self.A1x = -self.Kpx - 2*self.Kdx/self.dt                   # poenostavitev
         self.A2x = self.Kdx/self.dt                                 # poenostavitev
         # PID - Y (levo/desno)
         self.Kpy = 0.500                                            # Člen: P 0.500
-        self.Kiy = 0.010                                            # Člen: I 0.008
-        self.Kdy = 0.030                                            # Člen: D 0.020
+        self.Kiy = 0.010                                            # Člen: I 0.010
+        self.Kdy = 0.030                                            # Člen: D 0.030
         self.A0y = self.Kpy + self.Kiy*self.dt + self.Kdy/self.dt   # poenostavitev
         self.A1y = -self.Kpy - 2*self.Kdy/self.dt                   # poenostavitev
         self.A2y = self.Kdy/self.dt                                 # poenostavitev
         # PID - Z (gor/dol)
-        self.Kpz = 0.500                                            # Člen: P 0.40
-        self.Kiz = 0.010                                            # Člen: I 0.008
+        self.Kpz = 0.500                                            # Člen: P 0.500
+        self.Kiz = 0.010                                            # Člen: I 0.010
         self.Kdz = 0.030                                            # Člen: D 0.030
         self.A0z = self.Kpz + self.Kiz*self.dt + self.Kdz/self.dt   # poenostavitev
         self.A1z = -self.Kpz - 2*self.Kdz/self.dt                   # poenostavitev
         self.A2z = self.Kdz/self.dt                                 # poenostavitev
         # PID - YAW (rotacija)
-        self.Kpr = 0.600                                            # Člen: P 0.50
-        self.Kir = 0.050                                            # Člen: I 0.05
-        self.Kdr = 0.000                                            # Člen: D 0.00
+        self.Kpr = 0.600                                            # Člen: P 0.600
+        self.Kir = 0.050                                            # Člen: I 0.050
+        self.Kdr = 0.000                                            # Člen: D 0.000
         self.A0r = self.Kpr + self.Kir*self.dt + self.Kdr/self.dt   # poenostavitev
         self.A1r = -self.Kpr - 2*self.Kdr/self.dt                   # poenostavitev
         self.A2r = self.Kdr/self.dt                                 # poenostavitev
 
         # PID Bubble - X (naprej/nazaj)
-        self.Kpxb = 0.005                                            # Člen: P 0.015
-        self.Kixb = 0.001                                            # Člen: I 0.020
+        self.Kpxb = 0.003                                            # Člen: P 0.005
+        self.Kixb = 0.001                                            # Člen: I 0.001
         self.Kdxb = 0.002                                            # Člen: D 0.002
         self.A0xb = self.Kpxb + self.Kixb*self.dt + self.Kdxb/self.dt# poenostavitev
         self.A1xb = -self.Kpxb - 2*self.Kdxb/self.dt                 # poenostavitev
         self.A2xb = self.Kdxb/self.dt                                # poenostavitev
         # PID Bubble - Y (levo/desno)
-        self.Kpyb = 0.300                                             # Člen: P 0.30
-        self.Kiyb = 0.001                                             # Člen: I 0.00
-        self.Kdyb = 0.020                                             # Člen: D 0.05
+        self.Kpyb = 0.050                                             # Člen: P 0.300
+        self.Kiyb = 0.001                                             # Člen: I 0.001
+        self.Kdyb = 0.020                                             # Člen: D 0.020
         self.A0yb = self.Kpyb + self.Kiyb*self.dt + self.Kdyb/self.dt# poenostavitev
         self.A1yb = -self.Kpyb - 2*self.Kdyb/self.dt                 # poenostavitev
         self.A2yb = self.Kdyb/self.dt                                # poenostavitev
         # PID Bubble - Z (gor/dol)
-        self.Kpzb = 0.500                                             # Člen: P 0.30
-        self.Kizb = 0.010                                             # Člen: I 0.00
-        self.Kdzb = 0.030                                             # Člen: D 0.05
+        self.Kpzb = 0.500                                             # Člen: P 0.500
+        self.Kizb = 0.010                                             # Člen: I 0.010
+        self.Kdzb = 0.030                                             # Člen: D 0.030
         self.A0zb = self.Kpzb + self.Kizb*self.dt + self.Kdzb/self.dt# poenostavitev
         self.A1zb = -self.Kpzb - 2*self.Kdzb/self.dt                 # poenostavitev
         self.A2zb = self.Kdzb/self.dt                                # poenostavitev
         # PID Bubble - YAW (rotacija)
-        self.Kprb = 0.500                                             # Člen: P 0.50
-        self.Kirb = 0.050                                             # Člen: I 0.05
-        self.Kdrb = 0.000                                             # Člen: D 0.00
+        self.Kprb = 0.500                                             # Člen: P 0.500
+        self.Kirb = 0.050                                             # Člen: I 0.050
+        self.Kdrb = 0.000                                             # Člen: D 0.000
         self.A0rb = self.Kprb + self.Kirb*self.dt + self.Kdrb/self.dt# poenostavitev
         self.A1rb = -self.Kprb - 2*self.Kdrb/self.dt                 # poenostavitev
         self.A2rb = self.Kdrb/self.dt                                # poenostavitev
@@ -770,7 +770,7 @@ class TelloC:
                     print("Delta:", delta)
 
                     # Ko zazna veliko spremembo v višini, ve da je skozi obroč
-                    if delta > 30 or delta < -30 or self.korakiSkozi > 8: # omejitev korakov
+                    if delta > 30 or delta < -30 or self.korakiSkozi > 5: # omejitev korakov
                         print("Obroč!!!")
                         self.korakiSkozi = 0
                         self.errorFlag = 1
@@ -921,7 +921,7 @@ class TelloC:
              self.napaka[os][0] = 0 - trenutnaVrednost
         if os == 2: # gor / dol
             if self.arucoId != 0 and self.arucoId != 5: self.napaka[os][0] = trenutnaVrednost + 30 # za kroge
-            if self.arucoId != 0 and self.arucoId == 5: self.napaka[os][0] = trenutnaVrednost + 30 # za kroge
+            if self.arucoId != 0 and self.arucoId == 5: self.napaka[os][0] = trenutnaVrednost - 5 # za kroge
             if self.arucoId == 0: self.napaka[os][0] = trenutnaVrednost + 00 # Za pristanek 
         if os == 3: # yaw ! ne dat else: ker ne dela nič več (pojma nimam zakaj ne)
             if trenutnaVrednost > 3 or trenutnaVrednost < 3: self.napaka[os][0] = 0 - trenutnaVrednost
